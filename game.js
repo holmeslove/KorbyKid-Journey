@@ -14,7 +14,7 @@ const HEIGHT = 540;
 // ---------- Settings (change these to change how the game feels) ----------
 const GRAVITY = 0.6;
 const MAX_FALL_SPEED = 14;
-const RUN_SPEED = 5;
+const RUN_SPEED = 5.5;       // 10% faster than the old 5
 const JUMP_POWER = -14.95;   // 15% stronger than the original -13
 const ATTACK_FRAMES = 120;   // attack mode lasts 120 frames, about 2 seconds
 const MAX_LIVES = 3;         // KorbyKid starts with 3 hearts
