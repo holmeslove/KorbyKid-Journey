@@ -15,7 +15,7 @@ A 2D platformer made with plain HTML, CSS and JavaScript.
 | Go through a door | Stand in the door and press Up arrow or W |
 | Attack (lasts 2 seconds) | Shift |
 
-KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Landing directly on top of an enemy destroys it and bounces him up; touching one from the side counts as a hit. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death background shows until you press **Continue** (the level restarts with 3 hearts) or **Return to Title** (back to the title screen, starting again from level 1).
+KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Touching an enemy counts as a hit, even from above. Only attack mode destroys enemies. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death background shows until you press **Continue** (the level restarts with 3 hearts) or **Return to Title** (back to the title screen, starting again from level 1).
 
 Platforms are one-way: jump up through them from below, and land on them when you fall down onto the top.
 
@@ -76,6 +76,14 @@ Levels are listed in the `LEVELS` array near the top of `game.js`. Each level ha
 - `door`: where the door is
 
 To add a level, copy one of the existing levels, change the numbers, and add it to the list.
+
+## Music
+
+Each level plays its own music, looping, from the `music` folder: `level1.mp3`, `level2.mp3` and `level3.mp3`. The music starts when the level begins and stops when you return to the title screen. If a music file is missing, the game is simply silent.
+
+## Sound effects
+
+The `sounds` folder holds sound effects. `impact1.mp3` plays each time an enemy is hit. The Music On/Off button does not turn sound effects off.
 
 ## Background darkness
 

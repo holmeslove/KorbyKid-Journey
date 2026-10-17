@@ -149,6 +149,7 @@ body {
 
 /* ---------- Characters screen ---------- */
 #characters-button,
+#music-button,
 #characters-back-button {
   font-weight: bold;
   border: none;
@@ -158,12 +159,14 @@ body {
   cursor: pointer;
 }
 
-#characters-button {
+#characters-button,
+#music-button {
   font-size: 22px;
   padding: 10px 36px;
 }
 
 #characters-button:active,
+#music-button:active,
 #characters-back-button:active {
   transform: translateY(4px);
   box-shadow: none;

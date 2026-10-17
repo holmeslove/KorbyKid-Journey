@@ -25,8 +25,6 @@ const ENEMY_DEATH_FRAMES = 30;  // a killed enemy shows its death picture for ha
 const KNOCKBACK_FRAMES = 25;   // after an enemy hit, KorbyKid is pushed away for 25 frames...
 const KNOCKBACK_SPEED = 7;      // ...at this speed, which moves him about 175 pixels
 const KNOCKBACK_JUMP = -6;      // and gives him a small hop as he is pushed
-const STOMP_BOUNCE = -8;        // how high KorbyKid bounces after landing on an enemy
-const STOMP_TOLERANCE = 10;     // how far his feet can be below an enemy's top and still count as landing on it
 const WALK_POSE_FRAMES = 15;    // the walking picture stays for a quarter second after he stops
 const SAVE_KEY_LEVEL = "korbykid.level";
 const SAVE_KEY_LIVES = "korbykid.lives";
@@ -119,6 +117,7 @@ const LEVELS = [
     name: "Level 1: Mysterious Earth",
     background: "background1",
     platformImage: "grassPlatform",
+    music: "music/level1.mp3",
     width: 3200,
     height: HEIGHT,
     start: { x: 60, y: GROUND_Y - PLAYER_H },
@@ -154,6 +153,7 @@ const LEVELS = [
     name: "Level 2: Scorching Planet",
     background: "background2",
     platformImage: "magmaPlatform",
+    music: "music/level2.mp3",
     width: 2400,
     height: HEIGHT,
     start: { x: 60, y: GROUND_Y - PLAYER_H },
@@ -184,6 +184,7 @@ const LEVELS = [
     name: "Level 3: Bossfight Galaxy",
     background: "background3",
     platformImage: "liquidPlatform",
+    music: "music/level3.mp3",
     width: 2800,
     height: HEIGHT,
     start: { x: 60, y: GROUND_Y - PLAYER_H },
@@ -219,6 +220,58 @@ const LEVELS = [
     door: { x: 2665, y: GROUND_Y - 90, w: 90, h: 90 }
   }
 ];
+
+// ---------- Music ----------
+// Each level has its own music file (see "music" in LEVELS). It starts when the level begins
+// and keeps looping. If a file is missing, or the browser blocks sound, the game just stays silent.
+const levelMusic = new Audio();
+levelMusic.loop = true;
+levelMusic.volume = 0.5;
+
+function playLevelMusic(index) {
+  const file = LEVELS[index].music;
+  if (levelMusic.getAttribute("src") !== file) {
+    levelMusic.src = file;
+  }
+  levelMusic.play().catch(() => {});
+}
+
+function stopLevelMusic() {
+  levelMusic.pause();
+}
+
+// The Music On/Off button on the title screen. The choice is saved in the browser.
+const SAVE_KEY_MUSIC = "korbykid.musicOn";
+let musicOn = true;
+
+function loadMusicSetting() {
+  try {
+    musicOn = localStorage.getItem(SAVE_KEY_MUSIC) !== "false";
+  } catch (err) {
+    musicOn = true;
+  }
+}
+
+function setMusicOn(isOn) {
+  musicOn = isOn;
+  levelMusic.muted = !isOn;
+  document.getElementById("music-button").textContent = isOn ? "Music: On" : "Music: Off";
+  try {
+    localStorage.setItem(SAVE_KEY_MUSIC, String(isOn));
+  } catch (err) {
+    // Storage is blocked: the setting still works until the page is closed
+  }
+}
+
+// ---------- Sound effects ----------
+// The impact sound plays each time an enemy is hit. Each play starts a fresh copy,
+// so quick hits can overlap instead of cutting each other off.
+const impactSound = new Audio("sounds/impact1.mp3");
+impactSound.volume = 0.6;
+
+function playImpactSound() {
+  impactSound.cloneNode().play().catch(() => {});
+}
 
 // ---------- Game state ----------
 let gameState = "intro";     // "intro" (title screen), "flyin" (Mr. Loodle brings KorbyKid in), or "playing"
@@ -268,6 +321,7 @@ function setDeathButtonsVisible(isVisible) {
 // Back to the title screen, starting the whole game again from level 1 with full hearts
 function returnToTitle() {
   setDeathButtonsVisible(false);
+  stopLevelMusic();
   deathTimer = 0;
   lives = MAX_LIVES;
   currentLevelIndex = 0;
@@ -434,6 +488,7 @@ function startGame(levelIndex) {
   loadProgress();                 // resume at the saved level with the saved hearts
   if (levelIndex !== undefined) currentLevelIndex = levelIndex;
   loadLevel(currentLevelIndex);
+  playLevelMusic(currentLevelIndex);
   resetFlyIn();
   gameState = "flyin";
 }
@@ -561,6 +616,7 @@ function goToNextLevel() {
   // After the last level, loop back to the first one
   const nextIndex = currentLevelIndex + 1 < LEVELS.length ? currentLevelIndex + 1 : 0;
   loadLevel(nextIndex);
+  playLevelMusic(nextIndex);
 }
 
 // ---------- Player movement ----------
@@ -593,7 +649,6 @@ function updatePlayer() {
   player.x += player.vx;
   handleHorizontalCollisions();
   const previousBottom = player.y + player.h;   // where his feet were before this frame
-  player.previousBottom = previousBottom;       // remembered for stomping enemies
   player.y += player.vy;
   handleVerticalCollisions(previousBottom);
 
@@ -710,6 +765,7 @@ function updateDyingEnemy(e) {
 function hitEnemy(e) {
   if (e.hitCooldown > 0) return;
 
+  playImpactSound();
   e.hits++;
   if (e.hits >= (ENEMY_TYPES[e.type].hitsToKill || 1)) {
     startEnemyDeath(e);
@@ -776,14 +832,6 @@ function checkEnemyCollisions() {
     if (attackTimer > 0) {
       // In attack mode, touching an enemy hits it
       hitEnemy(e);
-      continue;
-    }
-
-    // Landing directly on top of an enemy hits it and bounces KorbyKid back up
-    if (player.vy > 0 && player.previousBottom <= e.y + STOMP_TOLERANCE) {
-      hitEnemy(e);
-      player.y = e.y - player.h;
-      player.vy = STOMP_BOUNCE;
       continue;
     }
 
@@ -1264,7 +1312,7 @@ const CHARACTERS = [
   {
     name: "Cloopy",
     image: "assets/cloopy.png",
-    description: "Description coming soon."
+    description: "A little orange lobster with a top-hat. He's pretty big, so be careful if u spot him."
   },
   {
     name: "Mr. Loodle",
@@ -1274,7 +1322,7 @@ const CHARACTERS = [
   {
     name: "Evil Mr. Loodle",
     image: "assets/evil-mr-loodle.png",
-    description: "Description coming soon."
+    description: "Nah, i'm not giving u dis description. :)"
   }
 ];
 
@@ -1346,10 +1394,14 @@ function closeCharacters() {
 }
 
 document.getElementById("characters-button").addEventListener("click", openCharacters);
+document.getElementById("music-button").addEventListener("click", () => setMusicOn(!musicOn));
 document.getElementById("characters-back-button").addEventListener("click", closeCharacters);
 
 loadBackgroundDarkness();
 darknessSlider.value = Math.round(backgroundDarkness * 100);
+
+loadMusicSetting();
+setMusicOn(musicOn);
 
 loadImages();
 resetIntro();
