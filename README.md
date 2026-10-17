@@ -49,6 +49,7 @@ Put these PNG files in the `assets` folder with exactly these names. If a file i
 | `korbykid-death.png` | KorbyKid's hurt picture, shown for 1.5 seconds after a hit |
 | `jeremy.png` | Jeremy, the level 1 enemy |
 | `leap-o.png` | Leap-O, the level 2 flying enemy (flies in the air, ignores platforms) |
+| `cloopy.png` | Cloopy, the level 2 gatekeeper for the portal (one copy, same size as UFI). Takes 5 hits and turns grey with each hit |
 | `ufi.png` | UFI, the third normal enemy. Walks on the ground and is 3.3 times as big as the others |
 | `evil-mr-loodle.png` | Evil Mr. Loodle, the final boss (boss fight comes later) |
 | `heart.png` | A full heart (lives left) in the top left corner |
@@ -75,6 +76,10 @@ Levels are listed in the `LEVELS` array near the top of `game.js`. Each level ha
 - `door`: where the door is
 
 To add a level, copy one of the existing levels, change the numbers, and add it to the list.
+
+## Background darkness
+
+On the title screen, the **Background darkness** slider darkens the level backgrounds (not the title or death screens) to make the characters easier to see. The setting is saved in your browser.
 
 ## Jumping straight to a level (for testing)
 

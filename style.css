@@ -131,6 +131,22 @@ body {
   box-shadow: none;
 }
 
+/* ---------- Background darkness setting (on the title screen) ---------- */
+#darkness-setting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  font-size: 18px;
+  text-shadow: 2px 2px 0 #000;
+}
+
+#darkness-slider {
+  width: 220px;
+  cursor: pointer;
+}
+
 /* ---------- Characters screen ---------- */
 #characters-button,
 #characters-back-button {

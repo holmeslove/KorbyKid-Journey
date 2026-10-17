@@ -37,6 +37,7 @@ const ENEMY_CHASE_BOOST = 1.4;   // chasing enemies move this many times faster
 const ENEMY_PAUSE_CHANCE = 0.01; // chance per frame that a patrolling enemy stops for a moment
 const ENEMY_TURN_CHANCE = 0.005; // chance per frame that a patrolling enemy turns around early
 const ENEMY_SPACING = 10;        // the gap kept between enemies, so they never overlap each other
+const ENEMY_HIT_COOLDOWN = 40;   // after a hit that doesn't destroy an enemy, it waits this many frames before counting another
 const GROUND_Y = 500;        // top edge of the ground
 
 const PLAYER_W = 40;
@@ -58,6 +59,7 @@ const IMAGE_FILES = {
   jeremy: "assets/jeremy.png",
   leapO: "assets/leap-o.png",
   ufi: "assets/ufi.png",
+  cloopy: "assets/cloopy.png",
   evilLoodle: "assets/evil-mr-loodle.png",
   grassPlatform: "assets/grass-platform.png",
   magmaPlatform: "assets/magma-platform.png",
@@ -87,6 +89,9 @@ const ENEMY_TYPES = {
   leapO: { image: "leapO", color: "#00b4ff", speedMultiplier: 1, scale: 1, flies: true, bobHeight: 40, bobSpeed: 0.04 },
   // UFI walks on the ground, and is 3.3 times as big as the others (10% bigger than before)
   ufi: { image: "ufi", color: "#ffa300", speedMultiplier: 1, scale: 3.3 },
+  // Cloopy is the level 2 gatekeeper for the portal. He takes 5 hits to destroy.
+  // keepProportions: the box takes the picture's own width, so the picture is not squashed
+  cloopy: { image: "cloopy", color: "#9b59b6", speedMultiplier: 1, scale: 3.3, hitsToKill: 5, keepProportions: true },
   evilLoodle: { image: "evilLoodle", color: "#7e2553", speedMultiplier: 1, scale: 1 }
 };
 
@@ -165,6 +170,8 @@ const LEVELS = [
     ],
     enemies: [
       { type: "jeremy", x: 900, y: GROUND_Y - ENEMY_H, minX: 800, maxX: 1100 },
+      // Cloopy guards the portal at the end of the level. There is only one of him here.
+      { type: "cloopy", x: 2090, y: GROUND_Y - 132, minX: 2070, maxX: 2090 },
       // Leap-O fly in the air and bob up and down. Fly around them, or bump into them.
       { type: "leapO", x: 650, y: 230, minX: 600, maxX: 800 },
       { type: "leapO", x: 1050, y: 200, minX: 1000, maxX: 1180 },
@@ -454,13 +461,15 @@ function loadLevel(index) {
     type: e.type,                 // key into ENEMY_TYPES (jeremy, leapO, ...)
     x: e.x,
     y: e.y,
-    w: ENEMY_W * ENEMY_TYPES[e.type].scale,
+    w: enemyWidth(e.type),
     h: ENEMY_H * ENEMY_TYPES[e.type].scale,
     minX: e.minX,
     maxX: e.maxX,
     dir: Math.random() < 0.5 ? -1 : 1,                // 1 = right, -1 = left
     speed: ENEMY_SPEED * ENEMY_TYPES[e.type].speedMultiplier * (0.7 + Math.random() * 0.8),
     pauseTimer: 0,                                    // frames left to stand still
+    hits: 0,                                          // hits taken so far (Cloopy needs 5)
+    hitCooldown: 0,                                   // frames before another hit counts
     baseY: e.y,                                       // flying enemies bob around this height
     bobTime: Math.random() * Math.PI * 2,             // where in its bob cycle the enemy starts
     dying: false,                                     // true after he is destroyed
@@ -633,6 +642,8 @@ function handleVerticalCollisions(previousBottom) {
 // ---------- Enemies ----------
 function updateEnemies() {
   for (const e of enemies) {
+    if (e.hitCooldown > 0) e.hitCooldown--;
+
     if (e.dying) {
       updateDyingEnemy(e);
       continue;
@@ -694,6 +705,19 @@ function updateDyingEnemy(e) {
   }
 }
 
+// Hits an enemy. Most enemies are destroyed by one hit. Cloopy takes several hits, and after
+// each one he has a short pause before he can be hit again (so one touch counts only once).
+function hitEnemy(e) {
+  if (e.hitCooldown > 0) return;
+
+  e.hits++;
+  if (e.hits >= (ENEMY_TYPES[e.type].hitsToKill || 1)) {
+    startEnemyDeath(e);
+  } else {
+    e.hitCooldown = ENEMY_HIT_COOLDOWN;
+  }
+}
+
 function startEnemyDeath(e) {
   e.dying = true;
   e.deathTimer = ENEMY_DEATH_FRAMES;
@@ -720,6 +744,18 @@ function moveEnemy(e, speed) {
   }
 }
 
+// The width of an enemy's box. Enemies marked keepProportions use their picture's own
+// shape (so a wide picture is not squashed); the others use the normal width.
+function enemyWidth(typeName) {
+  const type = ENEMY_TYPES[typeName];
+  const height = ENEMY_H * type.scale;
+  const picture = images[type.image];
+  if (type.keepProportions && imageReady(type.image)) {
+    return height * picture.naturalWidth / picture.naturalHeight;
+  }
+  return ENEMY_W * type.scale;
+}
+
 // True if an enemy at (x, y) would be too close to another enemy.
 // Each enemy keeps a gap of ENEMY_SPACING pixels from the others.
 function overlapsAnotherEnemy(e, x, y) {
@@ -738,14 +774,14 @@ function checkEnemyCollisions() {
     if (e.dying || !rectsOverlap(player, e)) continue;
 
     if (attackTimer > 0) {
-      // In attack mode, touching an enemy destroys it
-      startEnemyDeath(e);
+      // In attack mode, touching an enemy hits it
+      hitEnemy(e);
       continue;
     }
 
-    // Landing directly on top of an enemy destroys it and bounces KorbyKid back up
+    // Landing directly on top of an enemy hits it and bounces KorbyKid back up
     if (player.vy > 0 && player.previousBottom <= e.y + STOMP_TOLERANCE) {
-      startEnemyDeath(e);
+      hitEnemy(e);
       player.y = e.y - player.h;
       player.vy = STOMP_BOUNCE;
       continue;
@@ -843,7 +879,16 @@ function draw() {
   const blinkOff = invulnerableTimer > 0 && Math.floor(invulnerableTimer / 6) % 2 === 1;
   if (hurtGraphicTimer > 0 && imageReady("korbykidDeath")) {
     // Show his hurt picture for a moment after a hit
-    ctx.drawImage(images.korbykidDeath, player.x, player.y, player.w, player.h);
+    // Keep the picture's own proportions: the lying-down pose is wider than he is standing
+    const hurtHeight = PLAYER_H * 0.5267025;   // four steps of smaller (15%, 10%, 10%, 10%): about 47% smaller than standing
+    const hurtWidth = hurtHeight * images.korbykidDeath.naturalWidth / images.korbykidDeath.naturalHeight;
+    ctx.drawImage(
+      images.korbykidDeath,
+      player.x + player.w / 2 - hurtWidth / 2,
+      player.y + player.h - hurtHeight,
+      hurtWidth,
+      hurtHeight
+    );
   } else if (!blinkOff) {
     // Walking picture while running on the ground (flipped when running left).
     // Standing still, jumping, and attacking use the other pictures.
@@ -920,6 +965,12 @@ function drawBackground() {
     ctx.fillStyle = "#2b0f54";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
   }
+
+  // The darkness setting: a see-through black layer over the level picture only
+  if (backgroundDarkness > 0) {
+    ctx.fillStyle = `rgba(0, 0, 0, ${backgroundDarkness})`;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  }
 }
 
 function drawPlatforms() {
@@ -978,7 +1029,12 @@ function drawEnemies() {
     const picture = type.image;
     if (imageReady(picture)) {
       // Mirror the picture when the enemy is moving left
+      // Cloopy goes greyer with each hit, reaching full grey just before his last hit
+      const hitsToKill = ENEMY_TYPES[e.type].hitsToKill || 1;
+      const greyness = Math.min(1, e.hits / Math.max(1, hitsToKill - 1));
+      ctx.filter = `grayscale(${greyness})`;
       drawFlippedImage(images[picture], e.x, e.y, e.w, e.h, e.dir === -1);
+      ctx.filter = "none";
     } else {
       ctx.fillStyle = type.color;
       ctx.fillRect(e.x, e.y, e.w, e.h);
@@ -1198,17 +1254,22 @@ const CHARACTERS = [
   {
     name: "Leap-O",
     image: "assets/leap-o.png",
-    description: "Description coming soon."
+    description: "A little tad-pole with wings. He likes to fly around biting people, that includes u."
   },
   {
-    name: "UFI",
+    name: "Unidentified Flying I (UFI)",
     image: "assets/ufi.png",
+    description: "A knockoff UFO :)"
+  },
+  {
+    name: "Cloopy",
+    image: "assets/cloopy.png",
     description: "Description coming soon."
   },
   {
     name: "Mr. Loodle",
     image: "assets/mr-loodle.png",
-    description: "Description coming soon."
+    description: "A little sun friend that just sits in the background. Hopefully he doesn't turn evil. (Foreshadowing)"
   },
   {
     name: "Evil Mr. Loodle",
@@ -1216,6 +1277,36 @@ const CHARACTERS = [
     description: "Description coming soon."
   }
 ];
+
+// ---------- Background darkness setting ----------
+// 0 is normal brightness, 0.8 is very dark. Only the level backgrounds are darkened
+// (not the title screen or the death screen). The choice is saved in the browser.
+const SAVE_KEY_DARKNESS = "korbykid.backgroundDarkness";
+const MAX_BACKGROUND_DARKNESS = 0.8;
+let backgroundDarkness = 0;
+
+function loadBackgroundDarkness() {
+  try {
+    const saved = parseFloat(localStorage.getItem(SAVE_KEY_DARKNESS));
+    if (saved >= 0 && saved <= MAX_BACKGROUND_DARKNESS) backgroundDarkness = saved;
+  } catch (err) {
+    // Storage is blocked: just use the normal brightness
+  }
+}
+
+function saveBackgroundDarkness() {
+  try {
+    localStorage.setItem(SAVE_KEY_DARKNESS, String(backgroundDarkness));
+  } catch (err) {
+    // Storage is blocked: the setting still works until the page is closed
+  }
+}
+
+const darknessSlider = document.getElementById("darkness-slider");
+darknessSlider.addEventListener("input", () => {
+  backgroundDarkness = darknessSlider.value / 100;
+  saveBackgroundDarkness();
+});
 
 // Builds the grid of character cards the first time the screen is opened
 function renderCharacters() {
@@ -1257,6 +1348,9 @@ function closeCharacters() {
 document.getElementById("characters-button").addEventListener("click", openCharacters);
 document.getElementById("characters-back-button").addEventListener("click", closeCharacters);
 
+loadBackgroundDarkness();
+darknessSlider.value = Math.round(backgroundDarkness * 100);
+
 loadImages();
 resetIntro();
 resizeCanvas();
@@ -1264,6 +1358,7 @@ requestAnimationFrame(gameLoop);
 
 // Development shortcut: add ?level=1, ?level=2 or ?level=3 to the page address
 // to skip the title screen and start straight in that level.
+// ?level=0 (or leaving it out) shows the title screen as normal.
 const levelParam = parseInt(new URLSearchParams(window.location.search).get("level"), 10);
 if (levelParam >= 1 && levelParam <= LEVELS.length) {
   startGame(levelParam - 1);
