@@ -13,13 +13,13 @@ A 2D platformer made with plain HTML, CSS and JavaScript.
 | Walk right | Right arrow or D |
 | Jump | Space, Up arrow or W |
 | Go through a door | Stand in the door and press Up arrow or W |
-| Attack (lasts 2 seconds) | Shift |
+| Attack (lasts 0.8 seconds) | Shift |
 
 KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Touching an enemy counts as a hit, even from above. Only attack mode destroys enemies. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death background shows until you press **Continue** (the level restarts with 3 hearts) or **Return to Title** (back to the title screen, starting again from level 1).
 
 Platforms are one-way: jump up through them from below, and land on them when you fall down onto the top.
 
-Press **Shift** to enter attack mode for two seconds. While attack mode is on, touching an enemy destroys it.
+Press **Shift** to enter attack mode for 0.8 seconds. While attack mode is on, touching an enemy destroys it.
 
 Progress is saved in the browser. When you come back, you start on the level you were on, with the hearts you had left.
 

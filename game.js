@@ -16,7 +16,7 @@ const GRAVITY = 0.6;
 const MAX_FALL_SPEED = 14;
 const RUN_SPEED = 5.5;       // 10% faster than the old 5
 const JUMP_POWER = -14.95;   // 15% stronger than the original -13
-const ATTACK_FRAMES = 120;   // attack mode lasts 120 frames, about 2 seconds
+const ATTACK_FRAMES = 48;    // attack mode lasts 48 frames, about 0.8 seconds
 const MAX_LIVES = 3;         // KorbyKid starts with 3 hearts
 const HEART_SIZE = 40;       // width and height of each heart in the top left corner
 const INVULNERABLE_FRAMES = 90; // after a hit, KorbyKid flashes and can't be hurt for 1.5 seconds
@@ -924,9 +924,10 @@ let bullets = [];
 
 const gunShootSound = new Audio("sounds/gun-shoot.mp3");
 
+// The gun's shot is 30% quieter than the other sound effects. It still follows the sound effects slider.
 function playGunShootSound() {
   const copy = gunShootSound.cloneNode();
-  copy.volume = soundVolume / 10;
+  copy.volume = (soundVolume / 10) * 0.7;
   copy.play().catch(() => {});
 }
 
@@ -1496,6 +1497,11 @@ const CHARACTERS = [
     name: "Cloopy",
     image: "assets/cloopy.png",
     description: "A little orange lobster with a top-hat. He's pretty big, so be careful if u spot him."
+  },
+  {
+    name: "KorbyKid Journey Gun",
+    image: "assets/gun.png",
+    description: "A gun :)"
   },
   {
     name: "Mr. Loodle",
