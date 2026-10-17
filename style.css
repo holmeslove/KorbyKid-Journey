@@ -79,7 +79,8 @@ body {
 
 /* ---------- Buttons ---------- */
 #play-button,
-#continue-button {
+#continue-button,
+#title-button {
   font-size: 28px;
   font-weight: bold;
   padding: 12px 48px;
@@ -95,19 +96,37 @@ body {
   box-shadow: none;
 }
 
-/* The Continue button sits in the center of the death screen */
-#continue-button {
+/* The Continue and Return to Title buttons stack in the center of the death screen */
+#continue-button,
+#title-button {
   position: absolute;
   left: 50%;
-  top: 50%;
   transform: translate(-50%, -50%);
 }
 
-#continue-button[hidden] {
+#continue-button {
+  top: calc(50% - 40px);
+}
+
+#title-button {
+  top: calc(50% + 50px);
+  font-size: 22px;
+  padding: 10px 36px;
+  background: #cfd8dc;
+  box-shadow: 0 6px 0 #78909c;
+}
+
+#continue-button[hidden],
+#title-button[hidden] {
   display: none;
 }
 
 #continue-button:active {
+  transform: translate(-50%, calc(-50% + 4px));
+  box-shadow: none;
+}
+
+#title-button:active {
   transform: translate(-50%, calc(-50% + 4px));
   box-shadow: none;
 }

@@ -36,12 +36,14 @@ const ENEMY_CHASE_HEIGHT = 80;   // ...and this close up or down
 const ENEMY_CHASE_BOOST = 1.4;   // chasing enemies move this many times faster
 const ENEMY_PAUSE_CHANCE = 0.01; // chance per frame that a patrolling enemy stops for a moment
 const ENEMY_TURN_CHANCE = 0.005; // chance per frame that a patrolling enemy turns around early
+const ENEMY_SPACING = 10;        // the gap kept between enemies, so they never overlap each other
 const GROUND_Y = 500;        // top edge of the ground
 
 const PLAYER_W = 40;
 const PLAYER_H = 56;
 const ENEMY_W = 40;
 const ENEMY_H = 40;
+const PLATFORM_CORNER_RADIUS = 4; // how rounded the corners of floating platforms are
 const MR_LOODLE_W = 120;     // the friendly flying ride that brings KorbyKid into level 1
 const MR_LOODLE_H = 70;
 
@@ -60,7 +62,7 @@ const IMAGE_FILES = {
   grassPlatform: "assets/grass-platform.png",
   magmaPlatform: "assets/magma-platform.png",
   liquidPlatform: "assets/liquid-platform.png",
-  door: "assets/door.png",
+  door: "assets/portal.png",
   deathBackground: "assets/death_background.png",
   background1: "assets/background1.png",
   background2: "assets/background2.png",
@@ -79,11 +81,13 @@ const IMAGE_FILES = {
 // UFI is the third normal enemy.
 // Evil Mr. Loodle is the final boss; his boss fight comes later.
 const ENEMY_TYPES = {
-  jeremy: { image: "jeremy", color: "#ff004d", speedMultiplier: 1 },
+  // scale makes a type bigger (1.5 = half as big again as the others)
+  jeremy: { image: "jeremy", color: "#ff004d", speedMultiplier: 1, scale: 1 },
   // Leap-O flies: no gravity or platforms, it drifts side to side and bobs up and down
-  leapO: { image: "leapO", color: "#00b4ff", speedMultiplier: 1, flies: true, bobHeight: 40, bobSpeed: 0.04 },
-  ufi: { image: "ufi", color: "#ffa300", speedMultiplier: 1 },
-  evilLoodle: { image: "evilLoodle", color: "#7e2553", speedMultiplier: 1 }
+  leapO: { image: "leapO", color: "#00b4ff", speedMultiplier: 1, scale: 1, flies: true, bobHeight: 40, bobSpeed: 0.04 },
+  // UFI walks on the ground, and is 3.3 times as big as the others (10% bigger than before)
+  ufi: { image: "ufi", color: "#ffa300", speedMultiplier: 1, scale: 3.3 },
+  evilLoodle: { image: "evilLoodle", color: "#7e2553", speedMultiplier: 1, scale: 1 }
 };
 
 const images = {};
@@ -139,7 +143,7 @@ const LEVELS = [
       { type: "jeremy", x: 2000, y: GROUND_Y - ENEMY_H, minX: 1900, maxX: 2100 },
       { type: "jeremy", x: 2530, y: 340 - ENEMY_H, minX: 2520, maxX: 2640 }
     ],
-    door: { x: 3080, y: GROUND_Y - 90, w: 60, h: 90 }
+    door: { x: 3065, y: GROUND_Y - 90, w: 90, h: 90 }
   },
   {
     name: "Level 2: Scorching Planet",
@@ -167,7 +171,45 @@ const LEVELS = [
       { type: "leapO", x: 1500, y: 230, minX: 1450, maxX: 1570 },
       { type: "leapO", x: 1960, y: 220, minX: 1950, maxX: 2050 }
     ],
-    door: { x: 2300, y: GROUND_Y - 90, w: 60, h: 90 }
+    door: { x: 2285, y: GROUND_Y - 90, w: 90, h: 90 }
+  },
+  {
+    name: "Level 3: Bossfight Galaxy",
+    background: "background3",
+    platformImage: "liquidPlatform",
+    width: 2800,
+    height: HEIGHT,
+    start: { x: 60, y: GROUND_Y - PLAYER_H },
+    platforms: [
+      // Ground pieces (the gaps between them are pits you can fall into)
+      { x: 0, y: GROUND_Y, w: 800, h: 40 },
+      { x: 880, y: GROUND_Y, w: 700, h: 40 },
+      { x: 1660, y: GROUND_Y, w: 1140, h: 40 },
+      // Floating platforms
+      { x: 300, y: 400, w: 140, h: 20 },
+      { x: 520, y: 320, w: 120, h: 20 },
+      { x: 720, y: 250, w: 130, h: 20 },
+      { x: 1000, y: 380, w: 150, h: 20 },
+      { x: 1220, y: 300, w: 130, h: 20 },
+      { x: 1420, y: 220, w: 120, h: 20 },
+      { x: 1700, y: 360, w: 150, h: 20 },
+      { x: 1930, y: 280, w: 130, h: 20 },
+      { x: 2150, y: 200, w: 120, h: 20 },
+      { x: 2380, y: 300, w: 140, h: 20 },
+      { x: 2480, y: 360, w: 120, h: 20 }
+    ],
+    enemies: [
+      { type: "jeremy", x: 600, y: GROUND_Y - ENEMY_H, minX: 500, maxX: 760 },
+      { type: "ufi", x: 1000, y: GROUND_Y - 132, minX: 900, maxX: 1400 },
+      { type: "leapO", x: 900, y: 200, minX: 850, maxX: 1050 },
+      { type: "jeremy", x: 1220, y: 300 - ENEMY_H, minX: 1220, maxX: 1310 },
+      { type: "leapO", x: 1500, y: 150, minX: 1450, maxX: 1640 },
+      { type: "jeremy", x: 1800, y: GROUND_Y - ENEMY_H, minX: 1700, maxX: 2050 },
+      { type: "jeremy", x: 2250, y: GROUND_Y - ENEMY_H, minX: 2200, maxX: 2500 },
+      { type: "leapO", x: 2300, y: 200, minX: 2250, maxX: 2450 },
+      { type: "ufi", x: 2000, y: GROUND_Y - 132, minX: 1700, maxX: 2400 }
+    ],
+    door: { x: 2665, y: GROUND_Y - 90, w: 90, h: 90 }
   }
 ];
 
@@ -210,14 +252,27 @@ function rectsOverlap(a, b) {
          a.y + a.h > b.y;
 }
 
-// The Continue button on the death screen
-function setContinueVisible(isVisible) {
+// The Continue and Return to Title buttons on the death screen
+function setDeathButtonsVisible(isVisible) {
   document.getElementById("continue-button").hidden = !isVisible;
+  document.getElementById("title-button").hidden = !isVisible;
+}
+
+// Back to the title screen, starting the whole game again from level 1 with full hearts
+function returnToTitle() {
+  setDeathButtonsVisible(false);
+  deathTimer = 0;
+  lives = MAX_LIVES;
+  currentLevelIndex = 0;
+  saveProgress();
+  gameState = "intro";
+  resetIntro();
+  setMenuVisible(false);   // the Play button fades in again after a moment
 }
 
 // Continue after the death screen: start the same level again with full hearts
 function continueAfterDeath() {
-  setContinueVisible(false);
+  setDeathButtonsVisible(false);
   lives = MAX_LIVES;
   loadLevel(currentLevelIndex);
 }
@@ -331,6 +386,7 @@ function drawFlyIn() {
 
   ctx.save();
   ctx.translate(shakeX, shakeY);
+  startShadow();
   drawPlatforms();
   drawDoor();
 
@@ -365,9 +421,11 @@ function drawFlyIn() {
 }
 
 // ---------- Starting and loading levels ----------
-function startGame() {
+// levelIndex is only given by the ?level=N shortcut (see the end of this file)
+function startGame(levelIndex) {
   setMenuVisible(false);
   loadProgress();                 // resume at the saved level with the saved hearts
+  if (levelIndex !== undefined) currentLevelIndex = levelIndex;
   loadLevel(currentLevelIndex);
   resetFlyIn();
   gameState = "flyin";
@@ -396,8 +454,8 @@ function loadLevel(index) {
     type: e.type,                 // key into ENEMY_TYPES (jeremy, leapO, ...)
     x: e.x,
     y: e.y,
-    w: ENEMY_W,
-    h: ENEMY_H,
+    w: ENEMY_W * ENEMY_TYPES[e.type].scale,
+    h: ENEMY_H * ENEMY_TYPES[e.type].scale,
     minX: e.minX,
     maxX: e.maxX,
     dir: Math.random() < 0.5 ? -1 : 1,                // 1 = right, -1 = left
@@ -431,7 +489,7 @@ function loseHeart() {
   if (lives <= 0) {
     // Out of hearts: show the death background, then restart the level
     deathTimer = 1;               // any value above 0 means the death screen is showing
-    setContinueVisible(true);
+    setDeathButtonsVisible(true);
   } else {
     // Still alive: he stays where he is, shows his hurt picture, and can't be hurt again for a moment
     invulnerableTimer = INVULNERABLE_FRAMES;
@@ -617,7 +675,12 @@ function updateEnemies() {
 // Flying enemies drift side to side and bob up and down around their starting height
 function updateFlyingEnemy(e, type) {
   e.bobTime += type.bobSpeed;
-  e.y = e.baseY + Math.sin(e.bobTime) * type.bobHeight;
+  const newY = e.baseY + Math.sin(e.bobTime) * type.bobHeight;
+
+  // If bobbing up or down would bump into another enemy, wait until it is clear
+  if (!overlapsAnotherEnemy(e, e.x, newY)) {
+    e.y = newY;
+  }
   moveEnemy(e, e.speed);
 }
 
@@ -639,6 +702,7 @@ function startEnemyDeath(e) {
 
 // Move an enemy, but keep it between its minX and maxX so it doesn't walk off its platform
 function moveEnemy(e, speed) {
+  const oldX = e.x;
   e.x += e.dir * speed;
   if (e.x < e.minX) {
     e.x = e.minX;
@@ -648,6 +712,24 @@ function moveEnemy(e, speed) {
     e.x = e.maxX;
     e.dir = -1;
   }
+
+  // Don't run into another enemy: step back and turn around
+  if (overlapsAnotherEnemy(e, e.x, e.y)) {
+    e.x = oldX;
+    e.dir = -e.dir;
+  }
+}
+
+// True if an enemy at (x, y) would be too close to another enemy.
+// Each enemy keeps a gap of ENEMY_SPACING pixels from the others.
+function overlapsAnotherEnemy(e, x, y) {
+  for (const other of enemies) {
+    if (other === e || other.dying) continue;
+    const touchesX = x < other.x + other.w + ENEMY_SPACING && x + e.w + ENEMY_SPACING > other.x;
+    const touchesY = y < other.y + other.h + ENEMY_SPACING && y + e.h + ENEMY_SPACING > other.y;
+    if (touchesX && touchesY) return true;
+  }
+  return false;
 }
 
 function checkEnemyCollisions() {
@@ -753,6 +835,7 @@ function draw() {
   // Everything in the world is drawn shifted by the camera
   ctx.save();
   ctx.translate(-cameraX, 0);
+  startShadow();
   drawPlatforms();
   drawDoor();
   drawEnemies();
@@ -775,10 +858,31 @@ function draw() {
       drawKorbyKid(player.x, player.y, player.w, player.h, attackTimer > 0, flipAttack);
     }
   }
+  stopShadow();
   ctx.restore();
 
   drawMessages();
+  startShadow();
   drawHearts();
+  stopShadow();
+}
+
+// Dark drop shadow behind the foreground pictures (platforms, enemies, KorbyKid, door)
+// so they stand out from the background. The sizes scale with the window, so the
+// shadow looks the same at every screen size.
+function startShadow() {
+  const scale = canvas.width / WIDTH;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+  ctx.shadowBlur = 8 * scale;
+  ctx.shadowOffsetX = 4 * scale;
+  ctx.shadowOffsetY = 4 * scale;
+}
+
+function stopShadow() {
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
 }
 
 // Hearts in the top left: full hearts for lives left, empty hearts for lives lost
@@ -820,13 +924,40 @@ function drawBackground() {
 
 function drawPlatforms() {
   for (const p of level.platforms) {
+    // Floating platforms get rounded corners. The ground pieces stay square.
+    const isFloating = p.y < GROUND_Y;
+    if (isFloating) {
+      // Clipping hides the drop shadow, so a solid rounded shape is drawn first to cast the
+      // shadow. The picture is then drawn clipped to the same rounded shape on top of it.
+      roundedRectPath(p.x, p.y, p.w, p.h, PLATFORM_CORNER_RADIUS);
+      ctx.fillStyle = "#000";
+      ctx.fill();
+
+      ctx.save();
+      roundedRectPath(p.x, p.y, p.w, p.h, PLATFORM_CORNER_RADIUS);
+      ctx.clip();
+    }
+
     if (imageReady(level.platformImage)) {
       ctx.drawImage(images[level.platformImage], p.x, p.y, p.w, p.h);
     } else {
       ctx.fillStyle = "#7e5aa8";
       ctx.fillRect(p.x, p.y, p.w, p.h);
     }
+
+    if (isFloating) ctx.restore();
   }
+}
+
+// Sets up a path for a rectangle with rounded corners (radius r)
+function roundedRectPath(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 function drawDoor() {
@@ -846,7 +977,8 @@ function drawEnemies() {
     const type = ENEMY_TYPES[e.type];
     const picture = type.image;
     if (imageReady(picture)) {
-      ctx.drawImage(images[picture], e.x, e.y, e.w, e.h);
+      // Mirror the picture when the enemy is moving left
+      drawFlippedImage(images[picture], e.x, e.y, e.w, e.h, e.dir === -1);
     } else {
       ctx.fillStyle = type.color;
       ctx.fillRect(e.x, e.y, e.w, e.h);
@@ -960,8 +1092,9 @@ canvas.addEventListener("click", () => {
   if (gameState === "intro") skipIntro();
 });
 
-document.getElementById("play-button").addEventListener("click", startGame);
+document.getElementById("play-button").addEventListener("click", () => startGame());
 document.getElementById("continue-button").addEventListener("click", continueAfterDeath);
+document.getElementById("title-button").addEventListener("click", returnToTitle);
 
 // ---------- Main loop ----------
 // The game logic runs at a fixed 60 steps per second, no matter how fast the screen refreshes.
@@ -1053,3 +1186,10 @@ loadImages();
 resetIntro();
 resizeCanvas();
 requestAnimationFrame(gameLoop);
+
+// Development shortcut: add ?level=1, ?level=2 or ?level=3 to the page address
+// to skip the title screen and start straight in that level.
+const levelParam = parseInt(new URLSearchParams(window.location.search).get("level"), 10);
+if (levelParam >= 1 && levelParam <= LEVELS.length) {
+  startGame(levelParam - 1);
+}

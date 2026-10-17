@@ -15,7 +15,7 @@ A 2D platformer made with plain HTML, CSS and JavaScript.
 | Go through a door | Stand in the door and press Up arrow or W |
 | Attack (lasts 2 seconds) | Shift |
 
-KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Landing directly on top of an enemy destroys it and bounces him up; touching one from the side counts as a hit. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death background shows until you press **Continue**, and then the level restarts with 3 hearts.
+KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Landing directly on top of an enemy destroys it and bounces him up; touching one from the side counts as a hit. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death background shows until you press **Continue** (the level restarts with 3 hearts) or **Return to Title** (back to the title screen, starting again from level 1).
 
 Platforms are one-way: jump up through them from below, and land on them when you fall down onto the top.
 
@@ -49,17 +49,17 @@ Put these PNG files in the `assets` folder with exactly these names. If a file i
 | `korbykid-death.png` | KorbyKid's hurt picture, shown for 1.5 seconds after a hit |
 | `jeremy.png` | Jeremy, the level 1 enemy |
 | `leap-o.png` | Leap-O, the level 2 flying enemy (flies in the air, ignores platforms) |
-| `ufi.png` | The third normal enemy, UFI |
+| `ufi.png` | UFI, the third normal enemy. Walks on the ground and is 3.3 times as big as the others |
 | `evil-mr-loodle.png` | Evil Mr. Loodle, the final boss (boss fight comes later) |
 | `heart.png` | A full heart (lives left) in the top left corner |
 | `heart-empty.png` | An empty heart (lives lost) in the top left corner |
 | `grass-platform.png` | Platform and ground tile for level 1 |
 | `magma-platform.png` | Platform and ground tile for level 2 |
-| `liquid-platform.png` | Platform and ground tile for level 3 (not built yet) |
-| `door.png` | The door at the end of a level |
+| `liquid-platform.png` | Platform and ground tile for level 3 |
+| `portal.png` | The portal at the end of a level (KorbyKid goes through it) |
 | `background1.png` | Level 1 background (The Mysterious Planet) |
 | `background2.png` | Level 2 background (The Crystal Caves) |
-| `background3.png` | Level 3 background (not built yet) |
+| `background3.png` | Level 3 background |
 | `death_background.png` | Full-screen picture shown on the death screen |
 
 ## Changing or adding levels
@@ -75,6 +75,10 @@ Levels are listed in the `LEVELS` array near the top of `game.js`. Each level ha
 - `door`: where the door is
 
 To add a level, copy one of the existing levels, change the numbers, and add it to the list.
+
+## Jumping straight to a level (for testing)
+
+Add `?level=1`, `?level=2` or `?level=3` to the end of the page address to skip the title screen and start in that level. For example, `index.html?level=2`. Starting this way also saves that level as your progress.
 
 ## Tweaking how the game feels
 
