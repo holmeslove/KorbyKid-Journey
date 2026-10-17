@@ -15,7 +15,14 @@
       <h1>KorbyKid Journey</h1>
       <button id="play-button">Play</button>
       <button id="characters-button">Characters</button>
-      <button id="music-button">Music: On</button>
+      <label class="volume-setting">
+        Music volume
+        <input type="range" id="music-slider" min="0" max="10" step="1">
+      </label>
+      <label class="volume-setting">
+        Sound effects volume
+        <input type="range" id="sound-slider" min="0" max="10" step="1">
+      </label>
       <label id="darkness-setting">
         Background darkness
         <input type="range" id="darkness-slider" min="0" max="80" step="5">

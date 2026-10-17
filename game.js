@@ -36,6 +36,10 @@ const ENEMY_PAUSE_CHANCE = 0.01; // chance per frame that a patrolling enemy sto
 const ENEMY_TURN_CHANCE = 0.005; // chance per frame that a patrolling enemy turns around early
 const ENEMY_SPACING = 10;        // the gap kept between enemies, so they never overlap each other
 const ENEMY_HIT_COOLDOWN = 40;   // after a hit that doesn't destroy an enemy, it waits this many frames before counting another
+const GUN_SHOOT_FRAMES = 120;    // the gun fires every 2 seconds
+const BULLET_W = 30;             // the size of a bullet, in the game's grid
+const BULLET_H = 16;
+const BULLET_SPEED = 7;
 const GROUND_Y = 500;        // top edge of the ground
 
 const PLAYER_W = 40;
@@ -58,6 +62,9 @@ const IMAGE_FILES = {
   leapO: "assets/leap-o.png",
   ufi: "assets/ufi.png",
   cloopy: "assets/cloopy.png",
+  gun: "assets/gun.png",
+  gunFlipped: "assets/gun-flipped.png",
+  bullet: "assets/bullet.png",
   evilLoodle: "assets/evil-mr-loodle.png",
   grassPlatform: "assets/grass-platform.png",
   magmaPlatform: "assets/magma-platform.png",
@@ -90,6 +97,10 @@ const ENEMY_TYPES = {
   // Cloopy is the level 2 gatekeeper for the portal. He takes 5 hits to destroy.
   // keepProportions: the box takes the picture's own width, so the picture is not squashed
   cloopy: { image: "cloopy", color: "#9b59b6", speedMultiplier: 1, scale: 3.3, hitsToKill: 5, keepProportions: true },
+  // KorbyKid Journey Gun stays on the floor and fires a bullet every 2 seconds.
+  // It faces the way it fires, and points right at the start.
+  // flippedImage is the picture used when it faces left (drawn as is, not mirrored)
+  gun: { image: "gun", flippedImage: "gunFlipped", color: "#555555", speedMultiplier: 1, scale: 1.5, keepProportions: true, stationary: true },
   evilLoodle: { image: "evilLoodle", color: "#7e2553", speedMultiplier: 1, scale: 1 }
 };
 
@@ -211,9 +222,11 @@ const LEVELS = [
       { type: "ufi", x: 1000, y: GROUND_Y - 132, minX: 900, maxX: 1400 },
       { type: "leapO", x: 900, y: 200, minX: 850, maxX: 1050 },
       { type: "jeremy", x: 1220, y: 300 - ENEMY_H, minX: 1220, maxX: 1310 },
-      { type: "leapO", x: 1500, y: 150, minX: 1450, maxX: 1640 },
+      { type: "leapO", x: 1700, y: 150, minX: 1650, maxX: 1800 },
       { type: "jeremy", x: 1800, y: GROUND_Y - ENEMY_H, minX: 1700, maxX: 2050 },
       { type: "jeremy", x: 2250, y: GROUND_Y - ENEMY_H, minX: 2200, maxX: 2500 },
+      // The gun sits on a platform halfway through the level and fires straight at KorbyKid.
+      { type: "gun", x: 1440, y: 160, minX: 1440, maxX: 1440 },
       { type: "leapO", x: 2300, y: 200, minX: 2250, maxX: 2450 },
       { type: "ufi", x: 2000, y: GROUND_Y - 132, minX: 1700, maxX: 2400 }
     ],
@@ -226,7 +239,6 @@ const LEVELS = [
 // and keeps looping. If a file is missing, or the browser blocks sound, the game just stays silent.
 const levelMusic = new Audio();
 levelMusic.loop = true;
-levelMusic.volume = 0.5;
 
 function playLevelMusic(index) {
   const file = LEVELS[index].music;
@@ -240,27 +252,40 @@ function stopLevelMusic() {
   levelMusic.pause();
 }
 
-// The Music On/Off button on the title screen. The choice is saved in the browser.
-const SAVE_KEY_MUSIC = "korbykid.musicOn";
-let musicOn = true;
+// ---------- Volume settings (title screen sliders, 0 to 10) ----------
+// The music and sound effect sliders are saved in the browser.
+const SAVE_KEY_MUSIC_VOLUME = "korbykid.musicVolume";
+const SAVE_KEY_SOUND_VOLUME = "korbykid.soundVolume";
+let musicVolume = 4;   // 4 out of 10 is the normal music level
+let soundVolume = 6;   // 6 out of 10 is the normal sound effect level
 
-function loadMusicSetting() {
+function loadVolumeSettings() {
   try {
-    musicOn = localStorage.getItem(SAVE_KEY_MUSIC) !== "false";
+    const savedMusic = parseInt(localStorage.getItem(SAVE_KEY_MUSIC_VOLUME), 10);
+    const savedSound = parseInt(localStorage.getItem(SAVE_KEY_SOUND_VOLUME), 10);
+    if (savedMusic >= 0 && savedMusic <= 10) musicVolume = savedMusic;
+    if (savedSound >= 0 && savedSound <= 10) soundVolume = savedSound;
   } catch (err) {
-    musicOn = true;
+    // Storage is blocked: use the normal levels
   }
 }
 
-function setMusicOn(isOn) {
-  musicOn = isOn;
-  levelMusic.muted = !isOn;
-  document.getElementById("music-button").textContent = isOn ? "Music: On" : "Music: Off";
+function saveVolumeSettings() {
   try {
-    localStorage.setItem(SAVE_KEY_MUSIC, String(isOn));
+    localStorage.setItem(SAVE_KEY_MUSIC_VOLUME, String(musicVolume));
+    localStorage.setItem(SAVE_KEY_SOUND_VOLUME, String(soundVolume));
   } catch (err) {
-    // Storage is blocked: the setting still works until the page is closed
+    // Storage is blocked: the settings still work until the page is closed
   }
+}
+
+// Sets every music and sound effect to the level chosen on the sliders
+function applyVolumeSettings() {
+  const music = musicVolume / 10;
+  const sound = soundVolume / 10;
+  levelMusic.volume = music;
+  deathMusic.volume = music;
+  deathSound.volume = sound;
 }
 
 // ---------- Sound effects ----------
@@ -269,8 +294,42 @@ function setMusicOn(isOn) {
 const impactSound = new Audio("sounds/impact1.mp3");
 impactSound.volume = 0.6;
 
+// Each copy needs its own volume set, because a copy doesn't keep the original's volume
 function playImpactSound() {
-  impactSound.cloneNode().play().catch(() => {});
+  const copy = impactSound.cloneNode();
+  copy.volume = soundVolume / 10;
+  copy.play().catch(() => {});
+}
+
+// Played when KorbyKid loses a life but is still alive (not when he runs out of hearts)
+const korbyImpactSound = new Audio("sounds/korbykid-impact.mp3");
+korbyImpactSound.volume = 0.6;
+
+function playKorbyImpactSound() {
+  const copy = korbyImpactSound.cloneNode();
+  copy.volume = soundVolume / 10;
+  copy.play().catch(() => {});
+}
+
+// Played once when KorbyKid runs out of hearts and the death screen appears
+const deathSound = new Audio("sounds/korbykid-death.mp3");
+deathSound.volume = 0.6;
+
+// Music that keeps looping on the death screen until Continue or Return to Title is pressed
+const deathMusic = new Audio("sounds/korbykid-death-music.mp3");
+deathMusic.loop = true;
+deathMusic.volume = 0.4;
+
+function playDeathSound() {
+  stopLevelMusic();   // the level music stops as the death screen comes up
+  deathSound.currentTime = 0;
+  deathSound.play().catch(() => {});
+  deathMusic.currentTime = 0;
+  deathMusic.play().catch(() => {});
+}
+
+function stopDeathMusic() {
+  deathMusic.pause();
 }
 
 // ---------- Game state ----------
@@ -322,6 +381,7 @@ function setDeathButtonsVisible(isVisible) {
 function returnToTitle() {
   setDeathButtonsVisible(false);
   stopLevelMusic();
+  stopDeathMusic();
   deathTimer = 0;
   lives = MAX_LIVES;
   currentLevelIndex = 0;
@@ -335,7 +395,9 @@ function returnToTitle() {
 function continueAfterDeath() {
   setDeathButtonsVisible(false);
   lives = MAX_LIVES;
+  stopDeathMusic();
   loadLevel(currentLevelIndex);
+  playLevelMusic(currentLevelIndex);
 }
 
 function setMenuVisible(isVisible) {
@@ -520,9 +582,10 @@ function loadLevel(index) {
     h: ENEMY_H * ENEMY_TYPES[e.type].scale,
     minX: e.minX,
     maxX: e.maxX,
-    dir: Math.random() < 0.5 ? -1 : 1,                // 1 = right, -1 = left
+    dir: ENEMY_TYPES[e.type].stationary ? 1 : (Math.random() < 0.5 ? -1 : 1),   // 1 = right, -1 = left
     speed: ENEMY_SPEED * ENEMY_TYPES[e.type].speedMultiplier * (0.7 + Math.random() * 0.8),
     pauseTimer: 0,                                    // frames left to stand still
+    shootTimer: GUN_SHOOT_FRAMES,                     // frames until the gun fires again
     hits: 0,                                          // hits taken so far (Cloopy needs 5)
     hitCooldown: 0,                                   // frames before another hit counts
     baseY: e.y,                                       // flying enemies bob around this height
@@ -533,6 +596,7 @@ function loadLevel(index) {
   }));
 
   cameraX = 0;
+  bullets = [];
   deathTimer = 0;
   finishTimer = 0;
   attackTimer = 0;
@@ -553,10 +617,12 @@ function loseHeart() {
   if (lives <= 0) {
     // Out of hearts: show the death background, then restart the level
     deathTimer = 1;               // any value above 0 means the death screen is showing
+    playDeathSound();
     setDeathButtonsVisible(true);
   } else {
     // Still alive: he stays where he is, shows his hurt picture, and can't be hurt again for a moment
     invulnerableTimer = INVULNERABLE_FRAMES;
+    playKorbyImpactSound();
     hurtGraphicTimer = HURT_GRAPHIC_FRAMES;
   }
 }
@@ -704,6 +770,12 @@ function updateEnemies() {
       continue;
     }
 
+    // Stationary enemies (the gun) stay where they are and fire on a timer
+    if (ENEMY_TYPES[e.type].stationary) {
+      updateGun(e);
+      continue;
+    }
+
     // Flying enemies don't chase or walk on the ground
     if (ENEMY_TYPES[e.type].flies) {
       updateFlyingEnemy(e, ENEMY_TYPES[e.type]);
@@ -744,7 +816,9 @@ function updateFlyingEnemy(e, type) {
   const newY = e.baseY + Math.sin(e.bobTime) * type.bobHeight;
 
   // If bobbing up or down would bump into another enemy, wait until it is clear
-  if (!overlapsAnotherEnemy(e, e.x, newY)) {
+  // (an enemy that already touches another one may move, so it can pull apart)
+  const alreadyTouching = overlapsAnotherEnemy(e, e.x, e.y);
+  if (alreadyTouching || !overlapsAnotherEnemy(e, e.x, newY)) {
     e.y = newY;
   }
   moveEnemy(e, e.speed);
@@ -793,8 +867,9 @@ function moveEnemy(e, speed) {
     e.dir = -1;
   }
 
-  // Don't run into another enemy: step back and turn around
-  if (overlapsAnotherEnemy(e, e.x, e.y)) {
+  // Don't run into another enemy: step back and turn around. An enemy that already touches
+  // another one (for example, one that spawned too close) is allowed to move so it can pull apart.
+  if (!overlapsAnotherEnemy(e, oldX, e.y) && overlapsAnotherEnemy(e, e.x, e.y)) {
     e.x = oldX;
     e.dir = -e.dir;
   }
@@ -840,6 +915,107 @@ function checkEnemyCollisions() {
       loseHeart();
       if (deathTimer === 0) knockBackPlayer(e);
     }
+  }
+}
+
+// ---------- The gun and its bullets ----------
+// Bullets fly along the floor. They can't be attacked: they can only be avoided.
+let bullets = [];
+
+const gunShootSound = new Audio("sounds/gun-shoot.mp3");
+
+function playGunShootSound() {
+  const copy = gunShootSound.cloneNode();
+  copy.volume = soundVolume / 10;
+  copy.play().catch(() => {});
+}
+
+// Counts down to the next shot, then fires a bullet at KorbyKid's side
+function updateGun(gun) {
+  gun.shootTimer--;
+  if (gun.shootTimer <= 0) {
+    gun.shootTimer = GUN_SHOOT_FRAMES;
+    fireBullet(gun);
+  }
+}
+
+// Fires one bullet at KorbyKid's position right now. The bullet then flies in a straight
+// line; it does not steer toward him, so he can dodge by moving.
+function fireBullet(gun) {
+  const fromX = gun.x + gun.w / 2;
+  const fromY = gun.y + gun.h * 0.3;   // the barrel: 20% higher than the middle of the gun
+  const toX = player.x + player.w / 2;
+  const toY = player.y + player.h / 2;
+
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const distance = Math.hypot(dx, dy) || 1;
+  const vx = dx / distance * BULLET_SPEED;
+  const vy = dy / distance * BULLET_SPEED;
+
+  gun.dir = vx < 0 ? -1 : 1;   // the gun turns to face the way it fires
+  bullets.push({
+    x: fromX - BULLET_W / 2,
+    y: fromY - BULLET_H / 2,
+    w: BULLET_W,
+    h: BULLET_H,
+    vx: vx,
+    vy: vy
+  });
+  playGunShootSound();
+}
+
+// Moves the bullets, and hurts KorbyKid if one touches him
+function updateBullets() {
+  for (const b of bullets) {
+    b.x += b.vx;
+    b.y += b.vy;
+  }
+
+  for (const b of bullets) {
+    if (rectsOverlap(player, b)) {
+      b.hit = true;
+      if (invulnerableTimer === 0) {
+        loseHeart();
+        if (deathTimer === 0) knockBackPlayer(b);
+      }
+    }
+  }
+
+  // Remove bullets that hit him, and bullets that have flown well past the edges of the level
+  const margin = 100;
+  bullets = bullets.filter(b =>
+    !b.hit &&
+    b.x > -margin && b.x < level.width + margin &&
+    b.y > -margin && b.y < HEIGHT + margin
+  );
+}
+
+// Draws a bullet turned to point the way it is flying. Bullets flying left are mirrored,
+// so they are never upside down.
+function drawBullet(b) {
+  const angle = Math.atan2(b.vy, b.vx);
+  ctx.save();
+  ctx.translate(b.x + b.w / 2, b.y + b.h / 2);
+  if (b.vx < 0) {
+    ctx.scale(-1, 1);
+    ctx.rotate(Math.PI - angle);
+  } else {
+    ctx.rotate(angle);
+  }
+
+  if (imageReady("bullet")) {
+    ctx.drawImage(images.bullet, -b.w / 2, -b.h / 2, b.w, b.h);
+  } else {
+    ctx.fillStyle = "#ffe600";
+    ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+  }
+  ctx.restore();
+}
+
+function drawBullets() {
+  for (const b of bullets) {
+    drawBullet(b);
   }
 }
 
@@ -889,6 +1065,7 @@ function update() {
 
   updatePlayer();
   updateEnemies();
+  updateBullets();
   if (deathTimer === 0) checkDoor();
   updateCamera();
 }
@@ -923,6 +1100,7 @@ function draw() {
   drawPlatforms();
   drawDoor();
   drawEnemies();
+  drawBullets();
   // Flash on and off while he is protected after a hit
   const blinkOff = invulnerableTimer > 0 && Math.floor(invulnerableTimer / 6) % 2 === 1;
   if (hurtGraphicTimer > 0 && imageReady("korbykidDeath")) {
@@ -1081,7 +1259,12 @@ function drawEnemies() {
       const hitsToKill = ENEMY_TYPES[e.type].hitsToKill || 1;
       const greyness = Math.min(1, e.hits / Math.max(1, hitsToKill - 1));
       ctx.filter = `grayscale(${greyness})`;
-      drawFlippedImage(images[picture], e.x, e.y, e.w, e.h, e.dir === -1);
+      if (e.dir === -1 && type.flippedImage && imageReady(type.flippedImage)) {
+        // This type has its own picture for facing left, so it is drawn as is
+        ctx.drawImage(images[type.flippedImage], e.x, e.y, e.w, e.h);
+      } else {
+        drawFlippedImage(images[picture], e.x, e.y, e.w, e.h, e.dir === -1);
+      }
       ctx.filter = "none";
     } else {
       ctx.fillStyle = type.color;
@@ -1394,14 +1577,27 @@ function closeCharacters() {
 }
 
 document.getElementById("characters-button").addEventListener("click", openCharacters);
-document.getElementById("music-button").addEventListener("click", () => setMusicOn(!musicOn));
+const musicSlider = document.getElementById("music-slider");
+const soundSlider = document.getElementById("sound-slider");
+musicSlider.addEventListener("input", () => {
+  musicVolume = Number(musicSlider.value);
+  saveVolumeSettings();
+  applyVolumeSettings();
+});
+soundSlider.addEventListener("input", () => {
+  soundVolume = Number(soundSlider.value);
+  saveVolumeSettings();
+  applyVolumeSettings();
+});
 document.getElementById("characters-back-button").addEventListener("click", closeCharacters);
 
 loadBackgroundDarkness();
 darknessSlider.value = Math.round(backgroundDarkness * 100);
 
-loadMusicSetting();
-setMusicOn(musicOn);
+loadVolumeSettings();
+musicSlider.value = musicVolume;
+soundSlider.value = soundVolume;
+applyVolumeSettings();
 
 loadImages();
 resetIntro();

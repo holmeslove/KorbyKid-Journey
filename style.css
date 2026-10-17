@@ -132,7 +132,8 @@ body {
 }
 
 /* ---------- Background darkness setting (on the title screen) ---------- */
-#darkness-setting {
+#darkness-setting,
+.volume-setting {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -142,14 +143,15 @@ body {
   text-shadow: 2px 2px 0 #000;
 }
 
-#darkness-slider {
+#darkness-slider,
+#music-slider,
+#sound-slider {
   width: 220px;
   cursor: pointer;
 }
 
 /* ---------- Characters screen ---------- */
 #characters-button,
-#music-button,
 #characters-back-button {
   font-weight: bold;
   border: none;
@@ -159,14 +161,12 @@ body {
   cursor: pointer;
 }
 
-#characters-button,
-#music-button {
+#characters-button {
   font-size: 22px;
   padding: 10px 36px;
 }
 
 #characters-button:active,
-#music-button:active,
 #characters-back-button:active {
   transform: translateY(4px);
   box-shadow: none;

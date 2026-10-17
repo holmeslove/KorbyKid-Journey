@@ -49,6 +49,9 @@ Put these PNG files in the `assets` folder with exactly these names. If a file i
 | `korbykid-death.png` | KorbyKid's hurt picture, shown for 1.5 seconds after a hit |
 | `jeremy.png` | Jeremy, the level 1 enemy |
 | `leap-o.png` | Leap-O, the level 2 flying enemy (flies in the air, ignores platforms) |
+| `gun.png` | KorbyKid Journey Gun, the level 3 gun on a platform. Used when it faces and fires right. Can be destroyed in attack mode |
+| `gun-flipped.png` | The gun facing left, used when it fires left (drawn as is, not mirrored) |
+| `bullet.png` | The gun's bullet. Flies in a straight line aimed at KorbyKid where he was when it was fired, turned to match its direction. It can be dodged, not attacked |
 | `cloopy.png` | Cloopy, the level 2 gatekeeper for the portal (one copy, same size as UFI). Takes 5 hits and turns grey with each hit |
 | `ufi.png` | UFI, the third normal enemy. Walks on the ground and is 3.3 times as big as the others |
 | `evil-mr-loodle.png` | Evil Mr. Loodle, the final boss (boss fight comes later) |
@@ -79,11 +82,11 @@ To add a level, copy one of the existing levels, change the numbers, and add it 
 
 ## Music
 
-Each level plays its own music, looping, from the `music` folder: `level1.mp3`, `level2.mp3` and `level3.mp3`. The music starts when the level begins and stops when you return to the title screen. If a music file is missing, the game is simply silent.
+Each level plays its own music, looping, from the `music` folder: `level1.mp3`, `level2.mp3` and `level3.mp3`. The music starts when the level begins and stops when you return to the title screen. If a music file is missing, the game is simply silent. On the title screen, the **Music volume** slider sets the music level from 0 to 10.
 
 ## Sound effects
 
-The `sounds` folder holds sound effects. `impact1.mp3` plays each time an enemy is hit. The Music On/Off button does not turn sound effects off.
+The `sounds` folder holds sound effects. `gun-shoot.mp3` plays each time the level 3 gun fires. `impact1.mp3` plays each time an enemy is hit, `korbykid-impact.mp3` plays when KorbyKid loses a life but survives, and `korbykid-death.mp3` plays when the death screen appears. The sound effects are controlled by their own slider on the title screen, separate from the music.
 
 ## Background darkness
 
