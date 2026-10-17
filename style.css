@@ -75,6 +75,31 @@ body {
   cursor: pointer;
 }
 
+/* The Continue button sits in the center of the death screen */
+#continue-button {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  font-weight: bold;
+  padding: 12px 48px;
+  border: none;
+  border-radius: 10px;
+  background: #ffcc00;
+  box-shadow: 0 6px 0 #b38f00;
+  cursor: pointer;
+}
+
+#continue-button[hidden] {
+  display: none;
+}
+
+#continue-button:active {
+  transform: translate(-50%, calc(-50% + 4px));
+  box-shadow: none;
+}
+
 #play-button:active {
   transform: translateY(4px);
   box-shadow: none;

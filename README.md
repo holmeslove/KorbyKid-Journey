@@ -15,7 +15,7 @@ A 2D platformer made with plain HTML, CSS and JavaScript.
 | Go through a door | Stand in the door and press Up arrow or W |
 | Attack (lasts 2 seconds) | Shift |
 
-KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Landing directly on top of an enemy destroys it and bounces him up; touching one from the side counts as a hit. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death background shows and the level restarts with 3 hearts.
+KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Landing directly on top of an enemy destroys it and bounces him up; touching one from the side counts as a hit. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death background shows until you press **Continue**, and then the level restarts with 3 hearts.
 
 Platforms are one-way: jump up through them from below, and land on them when you fall down onto the top.
 

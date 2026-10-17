@@ -17,7 +17,6 @@ const MAX_FALL_SPEED = 14;
 const RUN_SPEED = 5;
 const JUMP_POWER = -14.95;   // 15% stronger than the original -13
 const ATTACK_FRAMES = 120;   // attack mode lasts 120 frames, about 2 seconds
-const DEATH_FRAMES = 180;    // the death screen shows for 180 frames, about 3 seconds
 const MAX_LIVES = 3;         // KorbyKid starts with 3 hearts
 const HEART_SIZE = 40;       // width and height of each heart in the top left corner
 const INVULNERABLE_FRAMES = 90; // after a hit, KorbyKid flashes and can't be hurt for 1.5 seconds
@@ -209,6 +208,18 @@ function rectsOverlap(a, b) {
          a.x + a.w > b.x &&
          a.y < b.y + b.h &&
          a.y + a.h > b.y;
+}
+
+// The Continue button on the death screen
+function setContinueVisible(isVisible) {
+  document.getElementById("continue-button").hidden = !isVisible;
+}
+
+// Continue after the death screen: start the same level again with full hearts
+function continueAfterDeath() {
+  setContinueVisible(false);
+  lives = MAX_LIVES;
+  loadLevel(currentLevelIndex);
 }
 
 function setMenuVisible(isVisible) {
@@ -419,7 +430,8 @@ function loseHeart() {
 
   if (lives <= 0) {
     // Out of hearts: show the death background, then restart the level
-    deathTimer = DEATH_FRAMES;
+    deathTimer = 1;               // any value above 0 means the death screen is showing
+    setContinueVisible(true);
   } else {
     // Still alive: he stays where he is, shows his hurt picture, and can't be hurt again for a moment
     invulnerableTimer = INVULNERABLE_FRAMES;
@@ -695,13 +707,8 @@ function update() {
   if (invulnerableTimer > 0) invulnerableTimer--;
   if (hurtGraphicTimer > 0) hurtGraphicTimer--;
 
-  // After losing his last heart, wait and then restart the same level with full hearts
+  // After losing his last heart, the death screen waits for the Continue button
   if (deathTimer > 0) {
-    deathTimer--;
-    if (deathTimer === 0) {
-      lives = MAX_LIVES;
-      loadLevel(currentLevelIndex);
-    }
     return;
   }
 
@@ -949,10 +956,27 @@ canvas.addEventListener("click", () => {
 });
 
 document.getElementById("play-button").addEventListener("click", startGame);
+document.getElementById("continue-button").addEventListener("click", continueAfterDeath);
 
 // ---------- Main loop ----------
-function gameLoop() {
-  update();
+// The game logic runs at a fixed 60 steps per second, no matter how fast the screen refreshes.
+// (Otherwise a 120 Hz screen would run the whole game twice as fast.)
+const STEP_TIME = 1000 / 60;   // milliseconds per game step
+let lastFrameTime = null;
+let timeBank = 0;              // time not yet used up by game steps
+
+function gameLoop(now) {
+  if (lastFrameTime === null) lastFrameTime = now;
+
+  // Long pauses (like a hidden tab) are capped so the game doesn't rush ahead
+  timeBank += Math.min(now - lastFrameTime, 250);
+  lastFrameTime = now;
+
+  while (timeBank >= STEP_TIME) {
+    update();
+    timeBank -= STEP_TIME;
+  }
+
   draw();
   requestAnimationFrame(gameLoop);
 }
@@ -968,4 +992,4 @@ window.addEventListener("resize", resizeCanvas);
 loadImages();
 resetIntro();
 resizeCanvas();
-gameLoop();
+requestAnimationFrame(gameLoop);
