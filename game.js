@@ -1182,6 +1182,81 @@ document.querySelectorAll(".touch-button").forEach((button) => {
   button.addEventListener("pointerleave", release);
 });
 
+// ---------- Characters screen (opened from the title screen) ----------
+// Add or change characters here. Use "Description coming soon." for placeholders.
+const CHARACTERS = [
+  {
+    name: "KorbyKid",
+    image: "assets/korbykid.png",
+    description: "A little green square guy with a hat with a star on it. He is also the dude u play as. Wait, he kinda looks familiar, doesn't he?"
+  },
+  {
+    name: "Jeremy",
+    image: "assets/jeremy.png",
+    description: "A little red octopus that doesn't do much. If u die to one, u suck at gaming."
+  },
+  {
+    name: "Leap-O",
+    image: "assets/leap-o.png",
+    description: "Description coming soon."
+  },
+  {
+    name: "UFI",
+    image: "assets/ufi.png",
+    description: "Description coming soon."
+  },
+  {
+    name: "Mr. Loodle",
+    image: "assets/mr-loodle.png",
+    description: "Description coming soon."
+  },
+  {
+    name: "Evil Mr. Loodle",
+    image: "assets/evil-mr-loodle.png",
+    description: "Description coming soon."
+  }
+];
+
+// Builds the grid of character cards the first time the screen is opened
+function renderCharacters() {
+  const grid = document.getElementById("characters-grid");
+  if (grid.childElementCount > 0) return;
+
+  for (const character of CHARACTERS) {
+    const card = document.createElement("div");
+    card.className = "character-card";
+
+    const picture = document.createElement("img");
+    picture.src = character.image;
+    picture.alt = character.name;
+    // If the picture file is missing, leave a blank space instead of a broken picture
+    picture.onerror = () => {
+      picture.style.visibility = "hidden";
+    };
+
+    const name = document.createElement("h3");
+    name.textContent = character.name;
+
+    const description = document.createElement("p");
+    description.textContent = character.description;
+
+    card.append(picture, name, description);
+    grid.appendChild(card);
+  }
+}
+
+function openCharacters() {
+  renderCharacters();
+  document.getElementById("characters-screen").hidden = false;
+}
+
+function closeCharacters() {
+  document.getElementById("characters-screen").hidden = true;
+}
+
+document.getElementById("characters-button").addEventListener("click", openCharacters);
+document.getElementById("characters-back-button").addEventListener("click", closeCharacters);
+
 loadImages();
 resetIntro();
 resizeCanvas();

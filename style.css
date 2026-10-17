@@ -131,6 +131,90 @@ body {
   box-shadow: none;
 }
 
+/* ---------- Characters screen ---------- */
+#characters-button,
+#characters-back-button {
+  font-weight: bold;
+  border: none;
+  border-radius: 10px;
+  background: #cfd8dc;
+  box-shadow: 0 6px 0 #78909c;
+  cursor: pointer;
+}
+
+#characters-button {
+  font-size: 22px;
+  padding: 10px 36px;
+}
+
+#characters-button:active,
+#characters-back-button:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+/* Covers the game picture; the grid of characters scrolls if it is too tall */
+#characters-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  box-sizing: border-box;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.88);
+  color: #fff;
+}
+
+#characters-screen[hidden] {
+  display: none;
+}
+
+.characters-title {
+  margin: 4px 0;
+  font-size: clamp(24px, 4vw, 40px);
+}
+
+#characters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 860px;
+}
+
+.character-card {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+
+.character-card img {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+}
+
+.character-card h3 {
+  margin: 6px 0 4px;
+  font-size: 18px;
+}
+
+.character-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+#characters-back-button {
+  font-size: 20px;
+  padding: 8px 32px;
+}
+
 /* ---------- Touch controls (shown only on touch screens) ---------- */
 #touch-controls {
   display: none;
