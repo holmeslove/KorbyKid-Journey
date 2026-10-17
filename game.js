@@ -1521,6 +1521,68 @@ document.getElementById("play-button").addEventListener("click", () => startGame
 document.getElementById("continue-button").addEventListener("click", continueAfterDeath);
 document.getElementById("title-button").addEventListener("click", returnToTitle);
 
+// ---------- Game controllers (USB or Bluetooth, read by the browser) ----------
+// The controller uses the browser's "standard" button layout:
+// bottom face button (A on Xbox) = jump, left face button (X on Xbox) = attack,
+// D-pad or left stick = walk, up = door, down = drop through a platform.
+const padHeld = { left: false, right: false, up: false, down: false, jump: false };
+let padAttackWasDown = false;
+
+// The first controller the browser can see, or null
+function findGamepad() {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const pad of pads) {
+    if (pad && pad.connected) return pad;
+  }
+  return null;
+}
+
+// Turns off any keys the controller was holding (for example, when it is unplugged)
+function releasePadKeys() {
+  for (const action in padHeld) {
+    if (padHeld[action]) {
+      padHeld[action] = false;
+      keys[action] = false;
+    }
+  }
+}
+
+// Reads the controller once per game step. Only changes are written to the keys,
+// so the keyboard and touch controls keep working alongside it.
+function pollGamepad() {
+  const pad = findGamepad();
+  if (!pad) {
+    releasePadKeys();
+    padAttackWasDown = false;
+    return;
+  }
+
+  const pressed = (index) => Boolean(pad.buttons[index] && pad.buttons[index].pressed);
+  const stickX = pad.axes[0] || 0;
+  const stickY = pad.axes[1] || 0;
+  const wanted = {
+    left: stickX < -0.5 || pressed(14),
+    right: stickX > 0.5 || pressed(15),
+    up: stickY < -0.5 || pressed(12),
+    down: stickY > 0.5 || pressed(13),
+    jump: pressed(0)
+  };
+
+  for (const action in wanted) {
+    if (wanted[action] !== padHeld[action]) {
+      padHeld[action] = wanted[action];
+      keys[action] = wanted[action];
+    }
+  }
+
+  // Attack starts when the button goes down, not while it is held
+  const attackDown = pressed(2);
+  if (attackDown && !padAttackWasDown) {
+    startAttack();
+  }
+  padAttackWasDown = attackDown;
+}
+
 // ---------- Main loop ----------
 // The game logic runs at a fixed 60 steps per second, no matter how fast the screen refreshes.
 // (Otherwise a 120 Hz screen would run the whole game twice as fast.)
@@ -1534,6 +1596,8 @@ function gameLoop(now) {
   // Long pauses (like a hidden tab) are capped so the game doesn't rush ahead
   timeBank += Math.min(now - lastFrameTime, 250);
   lastFrameTime = now;
+
+  pollGamepad();
 
   while (timeBank >= STEP_TIME) {
     update();

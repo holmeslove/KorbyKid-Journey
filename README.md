@@ -82,6 +82,20 @@ Levels are listed in the `LEVELS` array near the top of `game.js`. Each level ha
 
 To add a level, copy one of the existing levels, change the numbers, and add it to the list.
 
+## Game controllers
+
+A USB or Bluetooth game controller works in a supported browser (Chrome or Edge work best). Some controllers need you to press a button on them once before the browser can see them.
+
+| Controller | Action |
+| --- | --- |
+| Left stick or D-pad left/right | Walk |
+| Left stick or D-pad up | Go through a door |
+| Bottom face button (A on Xbox) | Jump |
+| Left face button (X on Xbox) | Attack |
+| Left stick or D-pad down | Drop down through a platform |
+
+Controllers are read as the browser's standard layout, so on some controllers (such as the Switch Pro) the buttons may be in a different place. The keyboard and the on-screen buttons still work with a controller connected.
+
 ## Music
 
 Each level plays its own music, looping, from the `music` folder: `level1.mp3`, `level2.mp3` and `level3.mp3`. The music starts when the level begins and stops when you return to the title screen. If a music file is missing, the game is simply silent. On the title screen, the **Music volume** slider sets the music level from 0 to 10.
