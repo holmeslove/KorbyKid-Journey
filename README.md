@@ -13,13 +13,14 @@ A 2D platformer made with plain HTML, CSS and JavaScript.
 | Walk right | Right arrow or D |
 | Jump | Space, Up arrow or W |
 | Go through a door | Stand in the door and press Up arrow or W |
+| Drop down through a platform | Down arrow or S, while standing on a platform (not the ground) |
 | Attack (lasts 0.8 seconds) | Shift |
 
 KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Touching an enemy counts as a hit, even from above. Only attack mode destroys enemies. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death background shows until you press **Continue** (the level restarts with 3 hearts) or **Return to Title** (back to the title screen, starting again from level 1).
 
 Platforms are one-way: jump up through them from below, and land on them when you fall down onto the top.
 
-Press **Shift** to enter attack mode for 0.8 seconds. While attack mode is on, touching an enemy destroys it.
+Press **Shift** to enter attack mode for 0.8 seconds. When an attack connects with an enemy, KorbyKid is pushed back a little, with a small hop, so he can recover. While attack mode is on, touching an enemy destroys it.
 
 Progress is saved in the browser. When you come back, you start on the level you were on, with the hearts you had left.
 
@@ -49,6 +50,7 @@ Put these PNG files in the `assets` folder with exactly these names. If a file i
 | `korbykid-death.png` | KorbyKid's hurt picture, shown for 1.5 seconds after a hit |
 | `jeremy.png` | Jeremy, the level 1 enemy |
 | `leap-o.png` | Leap-O, the level 2 flying enemy (flies in the air, ignores platforms) |
+| `smooley.png` | Smooley, a flying face that follows KorbyKid around and tries to touch him. Attack mode destroys him. In level 2, a random number of them (1 to 5) is placed at random spots each time the level loads. The second half does not appear until 5 seconds after the level starts, and then arrives far to the right, near the end of the level |
 | `gun.png` | KorbyKid Journey Gun, the level 3 gun on a platform. Used when it faces and fires right. Can be destroyed in attack mode |
 | `gun-flipped.png` | The gun facing left, used when it fires left (drawn as is, not mirrored) |
 | `bullet.png` | The gun's bullet. Flies in a straight line aimed at KorbyKid where he was when it was fired, turned to match its direction. It can be dodged, not attacked |

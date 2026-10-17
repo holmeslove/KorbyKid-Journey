@@ -25,6 +25,7 @@ const ENEMY_DEATH_FRAMES = 30;  // a killed enemy shows its death picture for ha
 const KNOCKBACK_FRAMES = 25;   // after an enemy hit, KorbyKid is pushed away for 25 frames...
 const KNOCKBACK_SPEED = 7;      // ...at this speed, which moves him about 175 pixels
 const KNOCKBACK_JUMP = -6;      // and gives him a small hop as he is pushed
+const DROP_FRAMES = 15;         // pressing Down on a platform lets him fall through it for a quarter second
 const WALK_POSE_FRAMES = 15;    // the walking picture stays for a quarter second after he stops
 const SAVE_KEY_LEVEL = "korbykid.level";
 const SAVE_KEY_LIVES = "korbykid.lives";
@@ -64,6 +65,7 @@ const IMAGE_FILES = {
   cloopy: "assets/cloopy.png",
   gun: "assets/gun.png",
   gunFlipped: "assets/gun-flipped.png",
+  smooley: "assets/smooley.png",
   bullet: "assets/bullet.png",
   evilLoodle: "assets/evil-mr-loodle.png",
   grassPlatform: "assets/grass-platform.png",
@@ -101,7 +103,9 @@ const ENEMY_TYPES = {
   // It faces the way it fires, and points right at the start.
   // flippedImage is the picture used when it faces left (drawn as is, not mirrored)
   gun: { image: "gun", flippedImage: "gunFlipped", color: "#555555", speedMultiplier: 1, scale: 1.5, keepProportions: true, stationary: true },
-  evilLoodle: { image: "evilLoodle", color: "#7e2553", speedMultiplier: 1, scale: 1 }
+  evilLoodle: { image: "evilLoodle", color: "#7e2553", speedMultiplier: 1, scale: 1 },
+  // Smooley flies and follows KorbyKid around, trying to touch him. Attack mode destroys him.
+  smooley: { image: "smooley", color: "#ff77aa", speedMultiplier: 1, scale: 1, follows: true, followSpeed: 1.45 }   // 66% of its old speed of 2.2
 };
 
 const images = {};
@@ -165,6 +169,7 @@ const LEVELS = [
     background: "background2",
     platformImage: "magmaPlatform",
     music: "music/level2.mp3",
+    randomSmooleys: true,   // a random number of Smooleys (1 to 5) is placed each time the level loads
     width: 2400,
     height: HEIGHT,
     start: { x: 60, y: GROUND_Y - PLAYER_H },
@@ -301,6 +306,24 @@ function playImpactSound() {
   copy.play().catch(() => {});
 }
 
+// Played when KorbyKid jumps, and when he lands back on the ground or a platform
+const jumpSound = new Audio("sounds/jump.mp3");
+const jumpLandSound = new Audio("sounds/jump-land.mp3");
+
+// The jump sound is at 10% of the normal sound effect level. It still follows the sound effects slider.
+function playJumpSound() {
+  const copy = jumpSound.cloneNode();
+  copy.volume = (soundVolume / 10) * 0.1;
+  copy.play().catch(() => {});
+}
+
+// The landing sound is at 10% of the normal sound effect level. It still follows the sound effects slider.
+function playJumpLandSound() {
+  const copy = jumpLandSound.cloneNode();
+  copy.volume = (soundVolume / 10) * 0.1;
+  copy.play().catch(() => {});
+}
+
 // Played when KorbyKid loses a life but is still alive (not when he runs out of hearts)
 const korbyImpactSound = new Audio("sounds/korbykid-impact.mp3");
 korbyImpactSound.volume = 0.6;
@@ -347,7 +370,7 @@ let lives = MAX_LIVES;       // hearts left (saved in browser storage)
 let invulnerableTimer = 0;   // counts down after a hit, so he isn't hurt again right away
 let hurtGraphicTimer = 0;    // counts down while he shows his hurt picture
 
-const keys = { left: false, right: false, up: false, jump: false };
+const keys = { left: false, right: false, up: false, jump: false, down: false };
 
 // Title screen and level-start fly-in state (Mr. Loodle's position while he flies in)
 let introX = 0;
@@ -555,6 +578,28 @@ function startGame(levelIndex) {
   gameState = "flyin";
 }
 
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+// The enemies to place in a level. Levels marked randomSmooleys get a random number of
+// Smooleys (1 to 5) at random places, re-rolled every time the level loads.
+function getLevelEnemySpawns(lvl) {
+  const spawns = lvl.enemies.slice();
+  if (lvl.randomSmooleys) {
+    const count = 1 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < count; i++) {
+      // The second half arrives 5 seconds (300 frames) in, far to the right near the end of the level
+      const isLateArrival = i >= Math.floor(count / 2);
+      const x = isLateArrival
+        ? randomBetween(lvl.width - 400, lvl.width - 200)
+        : randomBetween(300, lvl.width - 200);
+      spawns.push({ type: "smooley", x: x, y: randomBetween(50, 450), minX: x, maxX: x, delay: isLateArrival ? 300 : 0 });
+    }
+  }
+  return spawns;
+}
+
 function loadLevel(index) {
   currentLevelIndex = index;
   level = LEVELS[index];
@@ -570,11 +615,13 @@ function loadLevel(index) {
     knockbackTimer: 0,   // frames left while being pushed away after a hit
     knockbackDir: 0,     // -1 = pushed left, 1 = pushed right
     facing: 1,           // -1 = facing left, 1 = facing right (the way he last walked)
-    walkPoseTimer: 0     // frames left to keep showing the walking picture after he stops
+    walkPoseTimer: 0,    // frames left to keep showing the walking picture after he stops
+    standingOn: null,    // the platform he is standing on, if any
+    dropTimer: 0         // frames left while he falls through a platform he dropped through
   };
 
   // Copy the enemies so the level data stays unchanged when enemies die
-  enemies = level.enemies.map(e => ({
+  enemies = getLevelEnemySpawns(level).map(e => ({
     type: e.type,                 // key into ENEMY_TYPES (jeremy, leapO, ...)
     x: e.x,
     y: e.y,
@@ -586,6 +633,7 @@ function loadLevel(index) {
     speed: ENEMY_SPEED * ENEMY_TYPES[e.type].speedMultiplier * (0.7 + Math.random() * 0.8),
     pauseTimer: 0,                                    // frames left to stand still
     shootTimer: GUN_SHOOT_FRAMES,                     // frames until the gun fires again
+    appearTimer: e.delay || 0,                        // frames before this enemy appears (0 = from the start)
     hits: 0,                                          // hits taken so far (Cloopy needs 5)
     hitCooldown: 0,                                   // frames before another hit counts
     baseY: e.y,                                       // flying enemies bob around this height
@@ -594,6 +642,10 @@ function loadLevel(index) {
     deathTimer: 0,                                    // frames left showing the death picture
     vy: 0                                             // falling speed after the death picture
   }));
+
+  // Enemies with an appearTimer wait off to the side until their time comes
+  pendingEnemies = enemies.filter(e => e.appearTimer > 0);
+  enemies = enemies.filter(e => e.appearTimer === 0);
 
   cameraX = 0;
   bullets = [];
@@ -687,6 +739,8 @@ function goToNextLevel() {
 
 // ---------- Player movement ----------
 function updatePlayer() {
+  const wasOnGround = player.onGround;   // remembered so a landing can be detected
+
   // 1. Left and right (while being knocked back, the controls are ignored)
   player.vx = 0;
   if (player.knockbackTimer > 0) {
@@ -706,6 +760,17 @@ function updatePlayer() {
   // 2. Jump (only from the ground)
   if (keys.jump && player.onGround) {
     player.vy = JUMP_POWER;
+    playJumpSound();
+  }
+
+  // Press Down while standing on a floating platform to fall through it.
+  // (The ground can't be dropped through.)
+  if (player.dropTimer > 0) player.dropTimer--;
+  if (keys.down && player.onGround && player.standingOn && player.standingOn.y < GROUND_Y && player.dropTimer === 0) {
+    player.dropTimer = DROP_FRAMES;
+    player.onGround = false;
+    player.standingOn = null;
+    player.y += 2;   // step off the platform so his feet are below its top
   }
 
   // 3. Gravity pulls him down
@@ -717,6 +782,11 @@ function updatePlayer() {
   const previousBottom = player.y + player.h;   // where his feet were before this frame
   player.y += player.vy;
   handleVerticalCollisions(previousBottom);
+
+  // Landing: he was in the air last frame and is on the ground or a platform now
+  if (!wasOnGround && player.onGround) {
+    playJumpLandSound();
+  }
 
   // Stay inside the level from left to right
   player.x = clamp(player.x, 0, level.width - player.w);
@@ -750,12 +820,16 @@ function handleHorizontalCollisions() {
 // and he only lands when he is falling and his feet were above the top edge.
 function handleVerticalCollisions(previousBottom) {
   player.onGround = false;
+  player.standingOn = null;
   for (const p of level.platforms) {
-    if (rectsOverlap(player, p) && player.vy > 0 && previousBottom <= p.y) {
+    // While dropping through, floating platforms are ignored (the ground is never ignored)
+    const droppingThrough = player.dropTimer > 0 && p.y < GROUND_Y;
+    if (!droppingThrough && rectsOverlap(player, p) && player.vy > 0 && previousBottom <= p.y) {
       // Landed on top of a platform
       player.y = p.y - player.h;
       player.vy = 0;
       player.onGround = true;
+      player.standingOn = p;
     }
   }
 }
@@ -773,6 +847,12 @@ function updateEnemies() {
     // Stationary enemies (the gun) stay where they are and fire on a timer
     if (ENEMY_TYPES[e.type].stationary) {
       updateGun(e);
+      continue;
+    }
+
+    // Following enemies (Smooley) fly straight at KorbyKid all the time
+    if (ENEMY_TYPES[e.type].follows) {
+      updateFollowingEnemy(e, ENEMY_TYPES[e.type]);
       continue;
     }
 
@@ -810,6 +890,46 @@ function updateEnemies() {
   enemies = enemies.filter(e => !(e.dying && e.y > level.height));
 }
 
+// Smooleys push away from any other Smooley that is too close, so they spread out around
+// KorbyKid instead of stacking up on top of each other
+const SMOOLEY_SPACING = 70;   // how close two Smooleys can get, in the game's grid
+
+function separateFromOtherSmooleys(e) {
+  for (const other of enemies) {
+    if (other === e || other.dying || !ENEMY_TYPES[other.type].follows) continue;
+
+    const dx = (e.x + e.w / 2) - (other.x + other.w / 2);
+    const dy = (e.y + e.h / 2) - (other.y + other.h / 2);
+    const distance = Math.hypot(dx, dy);
+    if (distance > 0 && distance < SMOOLEY_SPACING) {
+      const push = (SMOOLEY_SPACING - distance) / SMOOLEY_SPACING * 0.5;
+      e.x += dx / distance * push;
+      e.y += dy / distance * push;
+    }
+  }
+}
+
+// Moves a following enemy straight toward KorbyKid's centre, at its own steady speed
+function updateFollowingEnemy(e, type) {
+  if (deathTimer > 0) return;
+
+
+  const dx = (player.x + player.w / 2) - (e.x + e.w / 2);
+  const dy = (player.y + player.h / 2) - (e.y + e.h / 2);
+  const distance = Math.hypot(dx, dy);
+  if (distance > 0) {
+    const step = Math.min(type.followSpeed, distance);
+    e.x += dx / distance * step;
+    e.y += dy / distance * step;
+  }
+  e.dir = dx < 0 ? -1 : 1;
+
+  separateFromOtherSmooleys(e);
+
+  // Stay inside the level
+  e.x = clamp(e.x, 0, level.width - e.w);
+}
+
 // Flying enemies drift side to side and bob up and down around their starting height
 function updateFlyingEnemy(e, type) {
   e.bobTime += type.bobSpeed;
@@ -836,8 +956,9 @@ function updateDyingEnemy(e) {
 
 // Hits an enemy. Most enemies are destroyed by one hit. Cloopy takes several hits, and after
 // each one he has a short pause before he can be hit again (so one touch counts only once).
+// Returns true if the hit counted, false if it was ignored (the enemy was still recovering)
 function hitEnemy(e) {
-  if (e.hitCooldown > 0) return;
+  if (e.hitCooldown > 0) return false;
 
   playImpactSound();
   e.hits++;
@@ -846,6 +967,7 @@ function hitEnemy(e) {
   } else {
     e.hitCooldown = ENEMY_HIT_COOLDOWN;
   }
+  return true;
 }
 
 function startEnemyDeath(e) {
@@ -905,8 +1027,8 @@ function checkEnemyCollisions() {
     if (e.dying || !rectsOverlap(player, e)) continue;
 
     if (attackTimer > 0) {
-      // In attack mode, touching an enemy hits it
-      hitEnemy(e);
+      // In attack mode, touching an enemy hits it. When the attack connects, he is pushed back.
+      if (hitEnemy(e)) knockBackPlayer(e);
       continue;
     }
 
@@ -916,6 +1038,19 @@ function checkEnemyCollisions() {
       if (deathTimer === 0) knockBackPlayer(e);
     }
   }
+}
+
+// ---------- Enemies that arrive later ----------
+// Some enemies (the second half of the Smooleys) are not in the level at the start.
+// They join the level when their timer runs out.
+let pendingEnemies = [];
+
+function updatePendingEnemies() {
+  for (const e of pendingEnemies) {
+    e.appearTimer--;
+  }
+  enemies.push(...pendingEnemies.filter(e => e.appearTimer <= 0));
+  pendingEnemies = pendingEnemies.filter(e => e.appearTimer > 0);
 }
 
 // ---------- The gun and its bullets ----------
@@ -1067,6 +1202,7 @@ function update() {
   updatePlayer();
   updateEnemies();
   updateBullets();
+  updatePendingEnemies();
   if (deathTimer === 0) checkDoor();
   updateCamera();
 }
@@ -1352,6 +1488,7 @@ function setKey(code, isDown) {
     keys.jump = isDown;
   }
   if (code === "Space") keys.jump = isDown;
+  if (code === "ArrowDown" || code === "KeyS") keys.down = isDown;
 }
 
 document.addEventListener("keydown", (e) => {
@@ -1502,6 +1639,11 @@ const CHARACTERS = [
     name: "KorbyKid Journey Gun",
     image: "assets/gun.png",
     description: "A gun :)"
+  },
+  {
+    name: "Smooley",
+    image: "assets/smooley.png",
+    description: "A little face that flies and follows you around. Make sure to run away and stay near your device at all times otherwise you're dead."
   },
   {
     name: "Mr. Loodle",
