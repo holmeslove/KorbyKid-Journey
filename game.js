@@ -6,37 +6,84 @@
 // ---------- Canvas setup ----------
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const WIDTH = canvas.width;
-const HEIGHT = canvas.height;
+// The game is always laid out on a 960 x 540 grid. The canvas itself
+// is resized to fill the browser window, and draw() scales the grid to match.
+const WIDTH = 960;
+const HEIGHT = 540;
 
 // ---------- Settings (change these to change how the game feels) ----------
 const GRAVITY = 0.6;
 const MAX_FALL_SPEED = 14;
 const RUN_SPEED = 5;
-const JUMP_POWER = -13;
-const STOMP_BOUNCE = -8;     // how high KorbyKid bounces after squishing an enemy
-const ENEMY_SPEED = 1.5;
+const JUMP_POWER = -14.95;   // 15% stronger than the original -13
+const ATTACK_FRAMES = 120;   // attack mode lasts 120 frames, about 2 seconds
+const DEATH_FRAMES = 180;    // the death screen shows for 180 frames, about 3 seconds
+const MAX_LIVES = 3;         // KorbyKid starts with 3 hearts
+const HEART_SIZE = 40;       // width and height of each heart in the top left corner
+const INVULNERABLE_FRAMES = 90; // after a hit, KorbyKid flashes and can't be hurt for 1.5 seconds
+const HURT_GRAPHIC_FRAMES = 90; // KorbyKid shows his hurt picture for 1.5 seconds after a hit
+const ENEMY_DEATH_FRAMES = 30;  // a killed enemy shows its death picture for half a second
+const KNOCKBACK_FRAMES = 25;   // after an enemy hit, KorbyKid is pushed away for 25 frames...
+const KNOCKBACK_SPEED = 7;      // ...at this speed, which moves him about 175 pixels
+const KNOCKBACK_JUMP = -6;      // and gives him a small hop as he is pushed
+const WALK_POSE_FRAMES = 15;    // the walking picture stays for a quarter second after he stops
+const SAVE_KEY_LEVEL = "korbykid.level";
+const SAVE_KEY_LIVES = "korbykid.lives";
+const ENEMY_SPEED = 1.5;     // average walking speed (each enemy gets a random speed near this)
+const ENEMY_CHASE_RANGE = 220;   // enemies chase KorbyKid when he is this close sideways...
+const ENEMY_CHASE_HEIGHT = 80;   // ...and this close up or down
+const ENEMY_CHASE_BOOST = 1.4;   // chasing enemies move this many times faster
+const ENEMY_PAUSE_CHANCE = 0.01; // chance per frame that a patrolling enemy stops for a moment
+const ENEMY_TURN_CHANCE = 0.005; // chance per frame that a patrolling enemy turns around early
 const GROUND_Y = 500;        // top edge of the ground
 
 const PLAYER_W = 40;
 const PLAYER_H = 56;
 const ENEMY_W = 40;
 const ENEMY_H = 40;
-const SCOOTER_W = 120;
-const SCOOTER_H = 70;
+const MR_LOODLE_W = 120;     // the friendly flying ride that brings KorbyKid into level 1
+const MR_LOODLE_H = 70;
 
 // ---------- Image files ----------
 // Put your PNG files in the "assets" folder using these names.
 // If a file is missing, the game draws a simple colored shape instead.
 const IMAGE_FILES = {
   introBackground: "assets/intro_background.png",
-  scooter: "assets/scooter.png",
   korbykid: "assets/korbykid.png",
-  enemy: "assets/enemy.png",
+  korbykidAttack: "assets/korbykid_attack.png",
+  korbykidDeath: "assets/korbykid-death.png",
+  jeremy: "assets/jeremy.png",
+  jeremyDeath: "assets/jeremy-death.png",
+  leapO: "assets/leap-o.png",
+  leapODeath: "assets/leap-o-death.png",
+  ufi: "assets/ufi.png",
+  ufiDeath: "assets/ufi-death.png",
+  evilLoodle: "assets/evil-mr-loodle.png",
+  evilLoodleDeath: "assets/evil-mr-loodle-death.png",
   platform: "assets/platform.png",
   door: "assets/door.png",
+  deathBackground: "assets/death_background.png",
   background1: "assets/background1.png",
-  background2: "assets/background2.png"
+  background2: "assets/background2.png",
+  background3: "assets/background3.png",
+  korbykidWalking: "assets/korbykid-walking.png",
+  mrLoodle: "assets/mr-loodle.png",
+  korbykidRiding: "assets/korbykid-riding.png",
+  heart: "assets/heart.png",
+  heartEmpty: "assets/heart-empty.png"
+};
+
+// ---------- Enemy types ----------
+// Each enemy type has its own pictures and its own properties.
+// image = the living picture, deathImage = the picture shown when it is destroyed.
+// speedMultiplier makes a type faster (above 1) or slower (below 1).
+// UFI is the third normal enemy.
+// Evil Mr. Loodle is the final boss; his boss fight comes later.
+const ENEMY_TYPES = {
+  jeremy: { image: "jeremy", deathImage: "jeremyDeath", color: "#ff004d", speedMultiplier: 1 },
+  leapO: { image: "leapO", deathImage: "leapODeath", color: "#00b4ff", speedMultiplier: 1 },
+  ufi: { image: "ufi", deathImage: "ufiDeath", color: "#ffa300", speedMultiplier: 1 },
+  evilLoodle: { image: "evilLoodle", deathImage: "evilLoodleDeath", color: "#7e2553", speedMultiplier: 1 }
 };
 
 const images = {};
@@ -84,12 +131,12 @@ const LEVELS = [
       { x: 2760, y: 280, w: 140, h: 20 }
     ],
     enemies: [
-      { x: 600, y: GROUND_Y - ENEMY_H, minX: 520, maxX: 800 },
-      { x: 260, y: 400 - ENEMY_H, minX: 250, maxX: 360 },
-      { x: 1100, y: GROUND_Y - ENEMY_H, minX: 990, maxX: 1200 },
-      { x: 1230, y: 300 - ENEMY_H, minX: 1220, maxX: 1320 },
-      { x: 2000, y: GROUND_Y - ENEMY_H, minX: 1900, maxX: 2100 },
-      { x: 2530, y: 340 - ENEMY_H, minX: 2520, maxX: 2640 }
+      { type: "jeremy", x: 600, y: GROUND_Y - ENEMY_H, minX: 520, maxX: 800 },
+      { type: "jeremy", x: 260, y: 400 - ENEMY_H, minX: 250, maxX: 360 },
+      { type: "jeremy", x: 1100, y: GROUND_Y - ENEMY_H, minX: 990, maxX: 1200 },
+      { type: "jeremy", x: 1230, y: 300 - ENEMY_H, minX: 1220, maxX: 1320 },
+      { type: "jeremy", x: 2000, y: GROUND_Y - ENEMY_H, minX: 1900, maxX: 2100 },
+      { type: "jeremy", x: 2530, y: 340 - ENEMY_H, minX: 2520, maxX: 2640 }
     ],
     door: { x: 3080, y: GROUND_Y - 90, w: 60, h: 90 }
   },
@@ -111,16 +158,16 @@ const LEVELS = [
       { x: 1950, y: 340, w: 140, h: 20 }
     ],
     enemies: [
-      { x: 900, y: GROUND_Y - ENEMY_H, minX: 800, maxX: 1100 },
-      { x: 1500, y: 340 - ENEMY_H, minX: 1450, maxX: 1570 },
-      { x: 1960, y: 340 - ENEMY_H, minX: 1950, maxX: 2050 }
+      { type: "jeremy", x: 900, y: GROUND_Y - ENEMY_H, minX: 800, maxX: 1100 },
+      { type: "leapO", x: 1500, y: 340 - ENEMY_H, minX: 1450, maxX: 1570 },
+      { type: "leapO", x: 1960, y: 340 - ENEMY_H, minX: 1950, maxX: 2050 }
     ],
     door: { x: 2300, y: GROUND_Y - 90, w: 60, h: 90 }
   }
 ];
 
 // ---------- Game state ----------
-let gameState = "intro";     // "intro" or "playing"
+let gameState = "intro";     // "intro" (title screen), "flyin" (Mr. Loodle brings KorbyKid in), or "playing"
 let currentLevelIndex = 0;
 let level = null;            // the level data currently being played
 let player = null;           // KorbyKid
@@ -128,14 +175,18 @@ let enemies = [];            // enemies alive in the current level
 let cameraX = 0;
 let levelTitleTimer = 0;     // counts down while the level name shows
 let deathTimer = 0;          // counts down after KorbyKid dies
+let deathMessage = "";       // how KorbyKid died, shown on the death screen
 let finishTimer = 0;         // counts down after KorbyKid enters the door
+let attackTimer = 0;         // counts down while KorbyKid is in attack mode
+let lives = MAX_LIVES;       // hearts left (saved in browser storage)
+let invulnerableTimer = 0;   // counts down after a hit, so he isn't hurt again right away
+let hurtGraphicTimer = 0;    // counts down while he shows his hurt picture
 
 const keys = { left: false, right: false, up: false, jump: false };
 
-// Intro animation state
-let introScooterX = 0;
-let introScooterY = 0;
-let introScooterVY = 0;
+// Title screen and level-start fly-in state (Mr. Loodle's position while he flies in)
+let introX = 0;
+let introY = 0;
 let introCrashed = false;
 let introCrashTimer = 0;
 let introShake = 0;
@@ -161,24 +212,11 @@ function setMenuVisible(isVisible) {
   menu.classList.toggle("hidden", !isVisible);
 }
 
-// ---------- Intro animation ----------
-// KorbyKid flies in on his scooter, crash lands, then the title and Play button appear.
+// ---------- Title screen (intro) ----------
+// Just the sky and ground. The title and Play button appear after a moment.
 function resetIntro() {
-  introScooterX = -SCOOTER_W;
-  introScooterY = 120;
-  introScooterVY = 0;
-  introCrashed = false;
   introCrashTimer = 0;
-  introShake = 0;
-  introDust = [];
   introMenuShown = false;
-}
-
-function crashScooter() {
-  introCrashed = true;
-  introScooterY = GROUND_Y - SCOOTER_H;
-  introShake = 20;
-  spawnDust(introScooterX + SCOOTER_W / 2, GROUND_Y);
 }
 
 function spawnDust(x, y) {
@@ -203,45 +241,22 @@ function updateDust() {
 }
 
 function updateIntro() {
-  if (!introCrashed) {
-    // Fly right, and start diving after the first part of the screen
-    introScooterX += 4;
-    if (introScooterX > WIDTH * 0.3) {
-      introScooterVY += 0.12;
-    }
-    introScooterY += introScooterVY;
+  introCrashTimer++;
 
-    if (introScooterY + SCOOTER_H >= GROUND_Y) {
-      crashScooter();
-    }
-  } else {
-    introCrashTimer++;
-    if (introShake > 0) introShake--;
-    updateDust();
-  }
-
-  // Show the title and Play button a moment after the crash
-  if (introCrashed && introCrashTimer > 60 && !introMenuShown) {
+  // Show the Play button a moment after the title screen appears
+  if (introCrashTimer > 60 && !introMenuShown) {
     introMenuShown = true;
     setMenuVisible(true);
   }
 }
 
-// Clicking or pressing Space/Enter during the intro jumps to the title
+// Clicking or pressing Space/Enter on the title screen shows the Play button right away
 function skipIntro() {
-  if (!introCrashed) crashScooter();
   introCrashTimer = 999;
 }
 
 function drawIntro() {
-  // Screen shake after the crash
-  const shakeX = introShake > 0 ? (Math.random() - 0.5) * 10 : 0;
-  const shakeY = introShake > 0 ? (Math.random() - 0.5) * 10 : 0;
-
-  ctx.save();
-  ctx.translate(shakeX, shakeY);
-
-  // Sky and ground
+  // Sky and ground (drawing is in the 960 x 540 game grid, see draw())
   if (imageReady("introBackground")) {
     ctx.drawImage(images.introBackground, 0, 0, WIDTH, HEIGHT);
   } else {
@@ -250,24 +265,77 @@ function drawIntro() {
   }
   ctx.fillStyle = "#4a3b2a";
   ctx.fillRect(0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y);
+}
 
-  // Scooter
-  if (imageReady("scooter")) {
-    ctx.drawImage(images.scooter, introScooterX, introScooterY, SCOOTER_W, SCOOTER_H);
+// ---------- Level start: Mr. Loodle flies KorbyKid in ----------
+// Mr. Loodle is a friendly flying ride, not an enemy. He flies in with KorbyKid
+// riding on top, lands at the start of the level, and then the level begins.
+function resetFlyIn() {
+  introX = -MR_LOODLE_W;
+  introY = 120;
+  introCrashed = false;
+  introCrashTimer = 0;
+  introShake = 0;
+  introDust = [];
+}
+
+function updateFlyIn() {
+  const targetX = level.start.x;
+  const targetY = GROUND_Y - MR_LOODLE_H;
+
+  if (!introCrashed) {
+    // Fly right, and ease down towards the ground
+    introX = Math.min(targetX, introX + 4);
+    introY += (targetY - introY) * 0.04;
+
+    if (introX >= targetX && introY > targetY - 2) {
+      introY = targetY;
+      introCrashed = true;
+      introShake = 20;
+      spawnDust(introX + MR_LOODLE_W / 2, GROUND_Y);
+    }
   } else {
-    ctx.fillStyle = "#29adff";
-    ctx.fillRect(introScooterX, introScooterY + 40, SCOOTER_W, 20);
-    ctx.fillStyle = "#222";
-    ctx.beginPath();
-    ctx.arc(introScooterX + 20, introScooterY + SCOOTER_H, 10, 0, Math.PI * 2);
-    ctx.arc(introScooterX + SCOOTER_W - 20, introScooterY + SCOOTER_H, 10, 0, Math.PI * 2);
-    ctx.fill();
+    introCrashTimer++;
+    if (introShake > 0) introShake--;
+    updateDust();
+
+    // Mr. Loodle leaves, and KorbyKid starts playing
+    if (introCrashTimer > 60) {
+      gameState = "playing";
+    }
+  }
+}
+
+function drawFlyIn() {
+  // Level background and platforms, with Mr. Loodle and KorbyKid flying in
+  drawBackground();
+
+  const shakeX = introShake > 0 ? (Math.random() - 0.5) * 10 : 0;
+  const shakeY = introShake > 0 ? (Math.random() - 0.5) * 10 : 0;
+
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
+  drawPlatforms();
+  drawDoor();
+
+  if (!introCrashed) {
+    // While flying, KorbyKid and Mr. Loodle are drawn as one picture
+    const ridingY = introY - PLAYER_H + 10;
+    const ridingH = MR_LOODLE_H + PLAYER_H - 10;
+    if (imageReady("korbykidRiding")) {
+      ctx.drawImage(images.korbykidRiding, introX, ridingY, MR_LOODLE_W, ridingH);
+    } else {
+      // Placeholder until korbykid-riding.png exists: Mr. Loodle with KorbyKid on top
+      ctx.fillStyle = "#8fd14f";
+      ctx.fillRect(introX, introY, MR_LOODLE_W, MR_LOODLE_H);
+      drawKorbyKid(introX + (MR_LOODLE_W - PLAYER_W) / 2, ridingY, PLAYER_W, PLAYER_H, false, false);
+    }
+  } else {
+    // After landing, KorbyKid shows as normal
+    drawKorbyKid(introX, GROUND_Y - PLAYER_H, PLAYER_W, PLAYER_H, false, false);
   }
 
-  // KorbyKid riding the scooter
-  drawKorbyKid(introScooterX + 35, introScooterY - 30, PLAYER_W, PLAYER_H);
-
-  // Dust puffs
+  // Dust puffs after the landing
   ctx.fillStyle = "#ddd";
   for (const d of introDust) {
     ctx.globalAlpha = d.life / 40;
@@ -283,8 +351,10 @@ function drawIntro() {
 // ---------- Starting and loading levels ----------
 function startGame() {
   setMenuVisible(false);
-  gameState = "playing";
-  loadLevel(0);
+  loadProgress();                 // resume at the saved level with the saved hearts
+  loadLevel(currentLevelIndex);
+  resetFlyIn();
+  gameState = "flyin";
 }
 
 function loadLevel(index) {
@@ -298,29 +368,109 @@ function loadLevel(index) {
     h: PLAYER_H,
     vx: 0,
     vy: 0,
-    onGround: false
+    onGround: false,
+    knockbackTimer: 0,   // frames left while being pushed away after a hit
+    knockbackDir: 0,     // -1 = pushed left, 1 = pushed right
+    facing: 1,           // -1 = facing left, 1 = facing right (the way he last walked)
+    walkPoseTimer: 0     // frames left to keep showing the walking picture after he stops
   };
 
   // Copy the enemies so the level data stays unchanged when enemies die
   enemies = level.enemies.map(e => ({
+    type: e.type,                 // key into ENEMY_TYPES (jeremy, leapO, ...)
     x: e.x,
     y: e.y,
     w: ENEMY_W,
     h: ENEMY_H,
     minX: e.minX,
     maxX: e.maxX,
-    vx: ENEMY_SPEED
+    dir: Math.random() < 0.5 ? -1 : 1,                // 1 = right, -1 = left
+    speed: ENEMY_SPEED * ENEMY_TYPES[e.type].speedMultiplier * (0.7 + Math.random() * 0.8),
+    pauseTimer: 0,                                    // frames left to stand still
+    dying: false,                                     // true after he is destroyed
+    deathTimer: 0,                                    // frames left showing the death picture
+    vy: 0                                             // falling speed after the death picture
   }));
 
   cameraX = 0;
   deathTimer = 0;
   finishTimer = 0;
+  attackTimer = 0;
+  invulnerableTimer = 0;
+  hurtGraphicTimer = 0;
   levelTitleTimer = 180;
+  saveProgress();
 }
 
-function killPlayer() {
+// Called whenever KorbyKid takes damage. Each hit costs one heart.
+// reason is the sentence shown on the death screen if this was his last heart.
+function loseHeart(reason) {
   if (deathTimer > 0) return;
-  deathTimer = 90;   // about 1.5 seconds before the level restarts
+
+  lives--;
+  triggerDamageFlash();
+  saveProgress();
+
+  if (lives <= 0) {
+    // Out of hearts: show the death screen, then restart the level
+    deathTimer = DEATH_FRAMES;
+    deathMessage = reason;
+  } else {
+    // Still alive: he stays where he is, shows his hurt picture, and can't be hurt again for a moment
+    invulnerableTimer = INVULNERABLE_FRAMES;
+    hurtGraphicTimer = HURT_GRAPHIC_FRAMES;
+  }
+}
+
+// Push KorbyKid away from the enemy that hit him, with a small hop
+function knockBackPlayer(enemy) {
+  const playerCenter = player.x + player.w / 2;
+  const enemyCenter = enemy.x + enemy.w / 2;
+  player.knockbackDir = playerCenter < enemyCenter ? -1 : 1;
+  player.knockbackTimer = KNOCKBACK_FRAMES;
+  player.vy = KNOCKBACK_JUMP;
+}
+
+// Falling into a hole costs a heart, then KorbyKid goes back to the start of the level
+function fallIntoHole() {
+  loseHeart("You fell into a hole.");
+  if (deathTimer === 0) {
+    player.x = level.start.x;
+    player.y = level.start.y;
+    player.vx = 0;
+    player.vy = 0;
+  }
+}
+
+// Red border flash around the whole browser window
+function triggerDamageFlash() {
+  const flash = document.getElementById("damage-flash");
+  flash.classList.add("show");
+  setTimeout(() => flash.classList.remove("show"), 300);
+}
+
+// ---------- Saving progress in browser storage ----------
+// Storage can be blocked (for example in private windows), so errors are ignored
+// and the game still runs.
+function saveProgress() {
+  try {
+    localStorage.setItem(SAVE_KEY_LEVEL, String(currentLevelIndex));
+    localStorage.setItem(SAVE_KEY_LIVES, String(lives));
+  } catch (err) {
+    // Nothing to do: progress just won't be remembered
+  }
+}
+
+function loadProgress() {
+  try {
+    const savedLevel = parseInt(localStorage.getItem(SAVE_KEY_LEVEL), 10);
+    const savedLives = parseInt(localStorage.getItem(SAVE_KEY_LIVES), 10);
+    currentLevelIndex = savedLevel >= 0 && savedLevel < LEVELS.length ? savedLevel : 0;
+    lives = savedLives > 0 && savedLives <= MAX_LIVES ? savedLives : MAX_LIVES;
+  } catch (err) {
+    currentLevelIndex = 0;
+    lives = MAX_LIVES;
+  }
 }
 
 function goToNextLevel() {
@@ -331,10 +481,21 @@ function goToNextLevel() {
 
 // ---------- Player movement ----------
 function updatePlayer() {
-  // 1. Left and right
+  // 1. Left and right (while being knocked back, the controls are ignored)
   player.vx = 0;
-  if (keys.left) player.vx = -RUN_SPEED;
-  if (keys.right) player.vx = RUN_SPEED;
+  if (player.knockbackTimer > 0) {
+    player.knockbackTimer--;
+    player.vx = player.knockbackDir * KNOCKBACK_SPEED;
+  } else {
+    if (keys.left) {
+      player.vx = -RUN_SPEED;
+      player.facing = -1;
+    }
+    if (keys.right) {
+      player.vx = RUN_SPEED;
+      player.facing = 1;
+    }
+  }
 
   // 2. Jump (only from the ground)
   if (keys.jump && player.onGround) {
@@ -347,15 +508,23 @@ function updatePlayer() {
   // 4. Move sideways, fix any overlap, then move up or down and fix again
   player.x += player.vx;
   handleHorizontalCollisions();
+  const previousBottom = player.y + player.h;   // where his feet were before this frame
   player.y += player.vy;
-  handleVerticalCollisions();
+  handleVerticalCollisions(previousBottom);
 
   // Stay inside the level from left to right
   player.x = clamp(player.x, 0, level.width - player.w);
 
+  // Keep the walking picture on for a moment after he stops walking
+  if (player.onGround && player.vx !== 0) {
+    player.walkPoseTimer = WALK_POSE_FRAMES;
+  } else if (player.walkPoseTimer > 0) {
+    player.walkPoseTimer--;
+  }
+
   // Falling below the screen means a pit
   if (player.y > level.height) {
-    killPlayer();
+    fallIntoHole();
   }
 }
 
@@ -371,20 +540,16 @@ function handleHorizontalCollisions() {
   }
 }
 
-function handleVerticalCollisions() {
+// Platforms are "one-way": KorbyKid can jump up through them from below,
+// and he only lands when he is falling and his feet were above the top edge.
+function handleVerticalCollisions(previousBottom) {
   player.onGround = false;
   for (const p of level.platforms) {
-    if (rectsOverlap(player, p)) {
-      if (player.vy > 0) {
-        // Landed on top of a platform
-        player.y = p.y - player.h;
-        player.vy = 0;
-        player.onGround = true;
-      } else if (player.vy < 0) {
-        // Bumped his head on the bottom of a platform
-        player.y = p.y + p.h;
-        player.vy = 0;
-      }
+    if (rectsOverlap(player, p) && player.vy > 0 && previousBottom <= p.y) {
+      // Landed on top of a platform
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.onGround = true;
     }
   }
 }
@@ -392,42 +557,85 @@ function handleVerticalCollisions() {
 // ---------- Enemies ----------
 function updateEnemies() {
   for (const e of enemies) {
-    // Walk back and forth between minX and maxX
-    e.x += e.vx;
-    if (e.x < e.minX) {
-      e.x = e.minX;
-      e.vx = Math.abs(e.vx);
-    }
-    if (e.x > e.maxX) {
-      e.x = e.maxX;
-      e.vx = -Math.abs(e.vx);
-    }
-  }
-  checkEnemyCollisions();
-}
-
-function checkEnemyCollisions() {
-  const survivors = [];
-
-  for (const e of enemies) {
-    if (!rectsOverlap(player, e)) {
-      survivors.push(e);
+    if (e.dying) {
+      updateDyingEnemy(e);
       continue;
     }
 
-    // Falling onto the top of an enemy squishes it (it is not kept)
-    const feetY = player.y + player.h;
-    const landedOnTop = player.vy > 0 && feetY - e.y < 20;
+    const playerIsClose = deathTimer === 0 &&
+      Math.abs(player.x - e.x) < ENEMY_CHASE_RANGE &&
+      Math.abs(player.y - e.y) < ENEMY_CHASE_HEIGHT;
 
-    if (landedOnTop) {
-      player.vy = STOMP_BOUNCE;
+    if (playerIsClose) {
+      // Chase KorbyKid: face him and move faster than usual
+      e.pauseTimer = 0;
+      e.dir = player.x < e.x ? -1 : 1;
+      moveEnemy(e, e.speed * ENEMY_CHASE_BOOST);
+    } else if (e.pauseTimer > 0) {
+      // Standing still for a moment
+      e.pauseTimer--;
     } else {
-      killPlayer();
-      survivors.push(e);
+      // Patrol with random pauses and random early turns
+      if (Math.random() < ENEMY_PAUSE_CHANCE) {
+        e.pauseTimer = 30 + Math.floor(Math.random() * 60);
+      } else {
+        if (Math.random() < ENEMY_TURN_CHANCE) e.dir = -e.dir;
+        moveEnemy(e, e.speed);
+      }
     }
   }
+  checkEnemyCollisions();
 
-  enemies = survivors;
+  // Remove enemies that have fallen off the bottom of the level
+  enemies = enemies.filter(e => !(e.dying && e.y > level.height));
+}
+
+// A killed enemy shows its death picture for a moment, then falls off the map
+function updateDyingEnemy(e) {
+  if (e.deathTimer > 0) {
+    e.deathTimer--;
+  } else {
+    e.vy = Math.min(e.vy + GRAVITY, MAX_FALL_SPEED);
+    e.y += e.vy;
+  }
+}
+
+function startEnemyDeath(e) {
+  e.dying = true;
+  e.deathTimer = ENEMY_DEATH_FRAMES;
+  e.vy = 0;
+}
+
+// Move an enemy, but keep it between its minX and maxX so it doesn't walk off its platform
+function moveEnemy(e, speed) {
+  e.x += e.dir * speed;
+  if (e.x < e.minX) {
+    e.x = e.minX;
+    e.dir = 1;
+  }
+  if (e.x > e.maxX) {
+    e.x = e.maxX;
+    e.dir = -1;
+  }
+}
+
+function checkEnemyCollisions() {
+  for (const e of enemies) {
+    // Enemies that are already dying can't hurt him
+    if (e.dying || !rectsOverlap(player, e)) continue;
+
+    if (attackTimer > 0) {
+      // In attack mode, touching an enemy destroys it
+      startEnemyDeath(e);
+      continue;
+    }
+
+    // Otherwise any touch costs a heart, even jumping on top (unless he just got hit)
+    if (invulnerableTimer === 0) {
+      loseHeart("You were killed by an enemy.");
+      if (deathTimer === 0) knockBackPlayer(e);
+    }
+  }
 }
 
 // ---------- Door and camera ----------
@@ -451,12 +659,22 @@ function update() {
     return;
   }
 
-  if (levelTitleTimer > 0) levelTitleTimer--;
+  if (gameState === "flyin") {
+    updateFlyIn();
+    return;
+  }
 
-  // After dying, wait and then restart the same level
+  if (levelTitleTimer > 0) levelTitleTimer--;
+  if (invulnerableTimer > 0) invulnerableTimer--;
+  if (hurtGraphicTimer > 0) hurtGraphicTimer--;
+
+  // After losing his last heart, wait and then restart the same level with full hearts
   if (deathTimer > 0) {
     deathTimer--;
-    if (deathTimer === 0) loadLevel(currentLevelIndex);
+    if (deathTimer === 0) {
+      lives = MAX_LIVES;
+      loadLevel(currentLevelIndex);
+    }
     return;
   }
 
@@ -467,6 +685,8 @@ function update() {
     return;
   }
 
+  if (attackTimer > 0) attackTimer--;
+
   updatePlayer();
   updateEnemies();
   if (deathTimer === 0) checkDoor();
@@ -475,8 +695,22 @@ function update() {
 
 // ---------- Drawing ----------
 function draw() {
+  // Scale the 960 x 540 game grid to fill the whole canvas
+  ctx.setTransform(canvas.width / WIDTH, 0, 0, canvas.height / HEIGHT, 0, 0);
+
   if (gameState === "intro") {
     drawIntro();
+    return;
+  }
+
+  if (gameState === "flyin") {
+    drawFlyIn();
+    return;
+  }
+
+  // The death screen covers the whole frame
+  if (deathTimer > 0) {
+    drawDeathScreen();
     return;
   }
 
@@ -488,15 +722,62 @@ function draw() {
   drawPlatforms();
   drawDoor();
   drawEnemies();
-  drawKorbyKid(player.x, player.y, player.w, player.h);
+  // Flash on and off while he is protected after a hit
+  const blinkOff = invulnerableTimer > 0 && Math.floor(invulnerableTimer / 6) % 2 === 1;
+  if (hurtGraphicTimer > 0 && imageReady("korbykidDeath")) {
+    // Show his hurt picture for a moment after a hit
+    ctx.drawImage(images.korbykidDeath, player.x, player.y, player.w, player.h);
+  } else if (!blinkOff) {
+    // Walking picture while running on the ground (flipped when running left).
+    // Standing still, jumping, and attacking use the other pictures.
+    const isWalking = player.onGround && (player.vx !== 0 || player.walkPoseTimer > 0) &&
+      attackTimer === 0 && imageReady("korbykidWalking");
+    if (isWalking) {
+      drawFlippedImage(images.korbykidWalking, player.x, player.y, player.w, player.h, player.facing === -1);
+    } else {
+      // Flip the attack picture only when walking/standing on the ground facing left.
+      // Jump-attacks always use the right-facing picture.
+      const flipAttack = player.facing === -1 && player.onGround;
+      drawKorbyKid(player.x, player.y, player.w, player.h, attackTimer > 0, flipAttack);
+    }
+  }
   ctx.restore();
 
   drawMessages();
+  drawHearts();
+}
+
+// Hearts in the top left: full hearts for lives left, empty hearts for lives lost
+function drawHearts() {
+  for (let i = 0; i < MAX_LIVES; i++) {
+    const x = 20 + i * 48;
+    const y = 16;
+    const isFull = i < lives;
+
+    if (isFull && imageReady("heart")) {
+      ctx.drawImage(images.heart, x, y, HEART_SIZE, HEART_SIZE);
+    } else if (!isFull && imageReady("heartEmpty")) {
+      ctx.drawImage(images.heartEmpty, x, y, HEART_SIZE, HEART_SIZE);
+    } else {
+      // Text heart until heart.png and heart-empty.png exist
+      ctx.font = "bold 36px Arial";
+      ctx.textAlign = "left";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "black";
+      ctx.fillStyle = isFull ? "#ff004d" : "#555";
+      ctx.strokeText("♥", x, y + 34);
+      ctx.fillText("♥", x, y + 34);
+    }
+  }
 }
 
 function drawBackground() {
   if (imageReady(level.background)) {
+    // Blur the level picture a little so the platforms and characters stand out.
+    // (Browsers that don't support canvas filters just show the sharp picture.)
+    ctx.filter = "blur(3px)";
     ctx.drawImage(images[level.background], 0, 0, WIDTH, HEIGHT);
+    ctx.filter = "none";
   } else {
     ctx.fillStyle = "#2b0f54";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -528,20 +809,47 @@ function drawDoor() {
 
 function drawEnemies() {
   for (const e of enemies) {
-    if (imageReady("enemy")) {
-      ctx.drawImage(images.enemy, e.x, e.y, e.w, e.h);
+    const type = ENEMY_TYPES[e.type];
+    const picture = e.dying ? type.deathImage : type.image;
+    if (imageReady(picture)) {
+      ctx.drawImage(images[picture], e.x, e.y, e.w, e.h);
     } else {
-      ctx.fillStyle = "#ff004d";
+      ctx.fillStyle = e.dying ? "#444" : type.color;
       ctx.fillRect(e.x, e.y, e.w, e.h);
     }
   }
 }
 
-function drawKorbyKid(x, y, w, h) {
-  if (imageReady("korbykid")) {
+// Draw a picture, mirrored left-to-right when flip is true
+function drawFlippedImage(img, x, y, w, h, flip) {
+  if (!flip) {
+    ctx.drawImage(img, x, y, w, h);
+    return;
+  }
+  ctx.save();
+  ctx.translate(x + w, y);
+  ctx.scale(-1, 1);
+  ctx.drawImage(img, 0, 0, w, h);
+  ctx.restore();
+}
+
+function drawKorbyKid(x, y, w, h, attacking, flipAttack) {
+  if (attacking && imageReady("korbykidAttack")) {
+    if (flipAttack) {
+      // Mirror the attack picture so he faces left
+      ctx.save();
+      ctx.translate(x + w, y);
+      ctx.scale(-1, 1);
+      ctx.drawImage(images.korbykidAttack, 0, 0, w, h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(images.korbykidAttack, x, y, w, h);
+    }
+  } else if (imageReady("korbykid")) {
     ctx.drawImage(images.korbykid, x, y, w, h);
   } else {
-    ctx.fillStyle = "#ff8c00";
+    // Placeholder square: darker orange while attacking
+    ctx.fillStyle = attacking ? "#b35a00" : "#ff8c00";
     ctx.fillRect(x, y, w, h);
   }
 }
@@ -560,12 +868,20 @@ function drawMessages() {
   if (levelTitleTimer > 0) {
     drawMessage(level.name, 60);
   }
-  if (deathTimer > 0) {
-    drawMessage("Oops! Try again", HEIGHT / 2);
-  }
   if (finishTimer > 0) {
     drawMessage("Level Complete!", HEIGHT / 2);
   }
+}
+
+function drawDeathScreen() {
+  if (imageReady("deathBackground")) {
+    ctx.drawImage(images.deathBackground, 0, 0, WIDTH, HEIGHT);
+  } else {
+    ctx.fillStyle = "#1a0000";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  }
+  drawMessage("You Died", HEIGHT / 2 - 30);
+  drawMessage(deathMessage, HEIGHT / 2 + 30);
 }
 
 // ---------- Keyboard and mouse input ----------
@@ -584,6 +900,13 @@ document.addEventListener("keydown", (e) => {
     skipIntro();
     return;
   }
+
+  // Shift starts attack mode (ignored while already attacking and ignores key repeat)
+  const isShift = e.code === "ShiftLeft" || e.code === "ShiftRight";
+  if (isShift && !e.repeat && gameState === "playing" && attackTimer === 0 && deathTimer === 0) {
+    attackTimer = ATTACK_FRAMES;
+  }
+
   setKey(e.code, true);
 
   // Stop the arrow keys and space from scrolling the page
@@ -609,6 +932,15 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
+// Make the canvas match the browser window size, and keep it matched when the window changes
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+window.addEventListener("resize", resizeCanvas);
+
 loadImages();
 resetIntro();
+resizeCanvas();
 gameLoop();

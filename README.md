@@ -5,8 +5,7 @@ A 2D platformer made with plain HTML, CSS and JavaScript.
 ## How to play
 
 1. Open `index.html` in a web browser (double-click it, or drag it into a browser window).
-2. Watch KorbyKid fly in on his scooter and crash land.
-3. Click **Play**.
+2. Click **Play**. Mr. Loodle flies KorbyKid in and lands him at the start of the level.
 
 | Action | Keys |
 | --- | --- |
@@ -14,8 +13,17 @@ A 2D platformer made with plain HTML, CSS and JavaScript.
 | Walk right | Right arrow or D |
 | Jump | Space, Up arrow or W |
 | Go through a door | Stand in the door and press Up arrow or W |
+| Attack (lasts 2 seconds) | Shift |
 
-Jump on top of an enemy to squish it. Touching an enemy from the side, or falling into a pit, restarts the level.
+KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Jumping on an enemy also counts as a hit. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death screen shows and the level restarts with 3 hearts.
+
+Platforms are one-way: jump up through them from below, and land on them when you fall down onto the top.
+
+Press **Shift** to enter attack mode for two seconds. While attack mode is on, touching an enemy destroys it.
+
+Progress is saved in the browser. When you come back, you start on the level you were on, with the hearts you had left.
+
+For attack mode, add a picture named `korbykid_attack.png` to the `assets` folder. Until then, KorbyKid turns a darker orange.
 
 ## Files
 
@@ -33,13 +41,28 @@ Put these PNG files in the `assets` folder with exactly these names. If a file i
 | File name | What it is |
 | --- | --- |
 | `intro_background.png` | Sky behind the intro animation |
-| `scooter.png` | KorbyKid's scooter (intro) |
 | `korbykid.png` | KorbyKid |
-| `enemy.png` | Enemy |
+| `korbykid-riding.png` | KorbyKid riding on Mr. Loodle while he flies in at the start of level 1 (one picture showing both) |
+| `mr-loodle.png` | Mr. Loodle, the friendly flying ride (not an enemy). Used only as a placeholder until `korbykid-riding.png` exists |
+| `korbykid_attack.png` | KorbyKid attacking (facing right; the game mirrors it when he faces left on the ground) |
+| `korbykid-walking.png` | KorbyKid walking (facing right; the game mirrors it when he walks left) |
+| `korbykid-death.png` | KorbyKid's hurt picture, shown for 1.5 seconds after a hit |
+| `jeremy.png` | Jeremy, the level 1 enemy |
+| `jeremy-death.png` | Jeremy when he is destroyed |
+| `leap-o.png` | Leap-O, the level 2 enemy |
+| `leap-o-death.png` | Leap-O when he is destroyed |
+| `ufi.png` | The third normal enemy, UFI |
+| `ufi-death.png` | UFI when destroyed |
+| `evil-mr-loodle.png` | Evil Mr. Loodle, the final boss (boss fight comes later) |
+| `evil-mr-loodle-death.png` | Evil Mr. Loodle when destroyed |
+| `heart.png` | A full heart (lives left) in the top left corner |
+| `heart-empty.png` | An empty heart (lives lost) in the top left corner |
 | `platform.png` | Platform and ground tile |
 | `door.png` | The door at the end of a level |
 | `background1.png` | Level 1 background (The Mysterious Planet) |
 | `background2.png` | Level 2 background (The Crystal Caves) |
+| `background3.png` | Level 3 background (not built yet) |
+| `death_background.png` | Full-screen picture shown on the death screen |
 
 ## Changing or adding levels
 
