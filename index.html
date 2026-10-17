@@ -20,6 +20,18 @@
     <button id="continue-button" hidden>Continue</button>
   </div>
 
+  <!-- On-screen buttons for phones and tablets. Hidden on computers (see style.css). -->
+  <div id="touch-controls">
+    <div class="touch-group">
+      <button class="touch-button" data-control="left" aria-label="Walk left">&#9664;</button>
+      <button class="touch-button" data-control="right" aria-label="Walk right">&#9654;</button>
+    </div>
+    <div class="touch-group">
+      <button class="touch-button" data-control="attack" aria-label="Attack">Attack</button>
+      <button class="touch-button" data-control="jump" aria-label="Jump">Jump</button>
+    </div>
+  </div>
+
   <!-- Red border shown around the whole window when KorbyKid is hurt -->
   <div id="damage-flash"></div>
 

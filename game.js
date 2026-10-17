@@ -917,6 +917,13 @@ function drawDeathScreen() {
 }
 
 // ---------- Keyboard and mouse input ----------
+// Start attack mode for ATTACK_FRAMES (ignored while already attacking)
+function startAttack() {
+  if (gameState === "playing" && attackTimer === 0 && deathTimer === 0) {
+    attackTimer = ATTACK_FRAMES;
+  }
+}
+
 function setKey(code, isDown) {
   if (code === "ArrowLeft" || code === "KeyA") keys.left = isDown;
   if (code === "ArrowRight" || code === "KeyD") keys.right = isDown;
@@ -933,11 +940,9 @@ document.addEventListener("keydown", (e) => {
     return;
   }
 
-  // Shift starts attack mode (ignored while already attacking and ignores key repeat)
+  // Shift starts attack mode (ignores key repeat)
   const isShift = e.code === "ShiftLeft" || e.code === "ShiftRight";
-  if (isShift && !e.repeat && gameState === "playing" && attackTimer === 0 && deathTimer === 0) {
-    attackTimer = ATTACK_FRAMES;
-  }
+  if (isShift && !e.repeat) startAttack();
 
   setKey(e.code, true);
 
@@ -981,13 +986,68 @@ function gameLoop(now) {
   requestAnimationFrame(gameLoop);
 }
 
-// Make the canvas match the browser window size, and keep it matched when the window changes
+// ---------- Fitting the game to the screen ----------
+const gameContainer = document.getElementById("game-container");
+const touchControls = document.getElementById("touch-controls");
+
+// Fit the game picture inside the window with its proportions kept (no stretching).
+// On touch screens, the touch controls take up the space below it.
 function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  const controlsHeight = document.body.classList.contains("touch-device") ? touchControls.offsetHeight : 0;
+
+  // The biggest size that fits, using the same shape as the 960 x 540 game grid
+  const scale = Math.min(window.innerWidth / WIDTH, (window.innerHeight - controlsHeight) / HEIGHT);
+  const cssWidth = Math.floor(WIDTH * scale);
+  const cssHeight = Math.floor(HEIGHT * scale);
+
+  // Draw at the screen's sharpness (phones are often 2 or 3 times sharper)
+  const sharpness = window.devicePixelRatio || 1;
+  canvas.width = Math.round(cssWidth * sharpness);
+  canvas.height = Math.round(cssHeight * sharpness);
+  gameContainer.style.width = cssWidth + "px";
+  gameContainer.style.height = cssHeight + "px";
 }
 
 window.addEventListener("resize", resizeCanvas);
+
+// ---------- Touch controls (phones and tablets) ----------
+if (window.matchMedia("(pointer: coarse)").matches) {
+  document.body.classList.add("touch-device");
+}
+
+// Setting a touch control on or off, like holding the matching key
+function setTouchControl(control, isDown) {
+  if (control === "left") keys.left = isDown;
+  if (control === "right") keys.right = isDown;
+  // Jump also counts as Up, so pressing jump while standing in the door goes through it
+  if (control === "jump") {
+    keys.jump = isDown;
+    keys.up = isDown;
+  }
+}
+
+// Each on-screen button works while it is held down
+document.querySelectorAll(".touch-button").forEach((button) => {
+  const control = button.dataset.control;
+
+  button.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    button.classList.add("pressed");
+    if (control === "attack") {
+      startAttack();
+    } else {
+      setTouchControl(control, true);
+    }
+  });
+
+  const release = () => {
+    button.classList.remove("pressed");
+    setTouchControl(control, false);
+  };
+  button.addEventListener("pointerup", release);
+  button.addEventListener("pointercancel", release);
+  button.addEventListener("pointerleave", release);
+});
 
 loadImages();
 resetIntro();

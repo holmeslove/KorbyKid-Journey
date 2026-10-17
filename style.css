@@ -1,15 +1,27 @@
+/* ---------- Page layout ----------
+   The page is a column: the game (sized by game.js to fit, without stretching),
+   then the touch controls on phones and tablets. */
+html,
 body {
+  height: 100%;
   margin: 0;
+  overflow: hidden;
   background: #111;
   font-family: Arial, sans-serif;
+  touch-action: none;   /* stops pinch-zoom and scrolling while playing */
 }
 
-/* The game fills the whole browser window */
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* game.js sets the width and height of this box to match the game picture */
 #game-container {
   position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  flex: none;
 }
 
 #game {
@@ -33,7 +45,8 @@ body {
   opacity: 1;
 }
 
-/* The title + Play button sit on top of the canvas */
+/* ---------- Title screen ---------- */
+/* The title + Play button sit on top of the game picture */
 #menu {
   position: absolute;
   inset: 0;
@@ -64,7 +77,9 @@ body {
   text-shadow: 3px 3px 0 #000;
 }
 
-#play-button {
+/* ---------- Buttons ---------- */
+#play-button,
+#continue-button {
   font-size: 28px;
   font-weight: bold;
   padding: 12px 48px;
@@ -75,20 +90,17 @@ body {
   cursor: pointer;
 }
 
+#play-button:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
 /* The Continue button sits in the center of the death screen */
 #continue-button {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  font-size: 28px;
-  font-weight: bold;
-  padding: 12px 48px;
-  border: none;
-  border-radius: 10px;
-  background: #ffcc00;
-  box-shadow: 0 6px 0 #b38f00;
-  cursor: pointer;
 }
 
 #continue-button[hidden] {
@@ -100,7 +112,50 @@ body {
   box-shadow: none;
 }
 
-#play-button:active {
-  transform: translateY(4px);
-  box-shadow: none;
+/* ---------- Touch controls (shown only on touch screens) ---------- */
+#touch-controls {
+  display: none;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 14px 14px;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body.touch-device #touch-controls {
+  display: flex;
+}
+
+.touch-group {
+  display: flex;
+  gap: 14px;
+}
+
+.touch-button {
+  width: 76px;
+  height: 76px;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 22px;
+  font-weight: bold;
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+.touch-button.pressed {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* On a phone held sideways, the buttons are smaller so they don't crowd the game */
+@media (max-height: 500px) {
+  .touch-button {
+    width: 60px;
+    height: 60px;
+    font-size: 18px;
+  }
 }

@@ -4,7 +4,7 @@ A 2D platformer made with plain HTML, CSS and JavaScript.
 
 ## How to play
 
-1. Open `index.html` in a web browser (double-click it, or drag it into a browser window).
+1. Open `index.html` in a web browser (double-click it, or drag it into a browser window). The game fits the window and keeps its shape when you resize it. On a phone or tablet, use the on-screen buttons at the bottom: the arrows walk, **Jump** jumps (and goes through a door), and **Attack** attacks.
 2. Click **Play**. Mr. Loodle flies KorbyKid in and lands him at the start of the level.
 
 | Action | Keys |
