@@ -26,6 +26,8 @@ const ENEMY_DEATH_FRAMES = 30;  // a killed enemy shows its death picture for ha
 const KNOCKBACK_FRAMES = 25;   // after an enemy hit, KorbyKid is pushed away for 25 frames...
 const KNOCKBACK_SPEED = 7;      // ...at this speed, which moves him about 175 pixels
 const KNOCKBACK_JUMP = -6;      // and gives him a small hop as he is pushed
+const STOMP_BOUNCE = -8;        // how high KorbyKid bounces after landing on an enemy
+const STOMP_TOLERANCE = 10;     // how far his feet can be below an enemy's top and still count as landing on it
 const WALK_POSE_FRAMES = 15;    // the walking picture stays for a quarter second after he stops
 const SAVE_KEY_LEVEL = "korbykid.level";
 const SAVE_KEY_LIVES = "korbykid.lives";
@@ -53,14 +55,12 @@ const IMAGE_FILES = {
   korbykidAttack: "assets/korbykid_attack.png",
   korbykidDeath: "assets/korbykid-death.png",
   jeremy: "assets/jeremy.png",
-  jeremyDeath: "assets/jeremy-death.png",
   leapO: "assets/leap-o.png",
-  leapODeath: "assets/leap-o-death.png",
   ufi: "assets/ufi.png",
-  ufiDeath: "assets/ufi-death.png",
   evilLoodle: "assets/evil-mr-loodle.png",
-  evilLoodleDeath: "assets/evil-mr-loodle-death.png",
-  platform: "assets/platform.png",
+  grassPlatform: "assets/grass-platform.png",
+  magmaPlatform: "assets/magma-platform.png",
+  liquidPlatform: "assets/liquid-platform.png",
   door: "assets/door.png",
   deathBackground: "assets/death_background.png",
   background1: "assets/background1.png",
@@ -75,15 +75,16 @@ const IMAGE_FILES = {
 
 // ---------- Enemy types ----------
 // Each enemy type has its own pictures and its own properties.
-// image = the living picture, deathImage = the picture shown when it is destroyed.
+// image = the enemy picture. Destroyed enemies just fall away; they have no death picture.
 // speedMultiplier makes a type faster (above 1) or slower (below 1).
 // UFI is the third normal enemy.
 // Evil Mr. Loodle is the final boss; his boss fight comes later.
 const ENEMY_TYPES = {
-  jeremy: { image: "jeremy", deathImage: "jeremyDeath", color: "#ff004d", speedMultiplier: 1 },
-  leapO: { image: "leapO", deathImage: "leapODeath", color: "#00b4ff", speedMultiplier: 1 },
-  ufi: { image: "ufi", deathImage: "ufiDeath", color: "#ffa300", speedMultiplier: 1 },
-  evilLoodle: { image: "evilLoodle", deathImage: "evilLoodleDeath", color: "#7e2553", speedMultiplier: 1 }
+  jeremy: { image: "jeremy", color: "#ff004d", speedMultiplier: 1 },
+  // Leap-O flies: no gravity or platforms, it drifts side to side and bobs up and down
+  leapO: { image: "leapO", color: "#00b4ff", speedMultiplier: 1, flies: true, bobHeight: 40, bobSpeed: 0.04 },
+  ufi: { image: "ufi", color: "#ffa300", speedMultiplier: 1 },
+  evilLoodle: { image: "evilLoodle", color: "#7e2553", speedMultiplier: 1 }
 };
 
 const images = {};
@@ -107,8 +108,9 @@ function imageReady(name) {
 // Platforms are {x, y, w, h}. Enemies walk between minX and maxX.
 const LEVELS = [
   {
-    name: "Level 1: The Mysterious Planet",
+    name: "Level 1: Mysterious Earth",
     background: "background1",
+    platformImage: "grassPlatform",
     width: 3200,
     height: HEIGHT,
     start: { x: 60, y: GROUND_Y - PLAYER_H },
@@ -141,8 +143,9 @@ const LEVELS = [
     door: { x: 3080, y: GROUND_Y - 90, w: 60, h: 90 }
   },
   {
-    name: "Level 2: The Crystal Caves",
+    name: "Level 2: Scorching Planet",
     background: "background2",
+    platformImage: "magmaPlatform",
     width: 2400,
     height: HEIGHT,
     start: { x: 60, y: GROUND_Y - PLAYER_H },
@@ -159,8 +162,11 @@ const LEVELS = [
     ],
     enemies: [
       { type: "jeremy", x: 900, y: GROUND_Y - ENEMY_H, minX: 800, maxX: 1100 },
-      { type: "leapO", x: 1500, y: 340 - ENEMY_H, minX: 1450, maxX: 1570 },
-      { type: "leapO", x: 1960, y: 340 - ENEMY_H, minX: 1950, maxX: 2050 }
+      // Leap-O fly in the air and bob up and down. Fly around them, or bump into them.
+      { type: "leapO", x: 650, y: 230, minX: 600, maxX: 800 },
+      { type: "leapO", x: 1050, y: 200, minX: 1000, maxX: 1180 },
+      { type: "leapO", x: 1500, y: 230, minX: 1450, maxX: 1570 },
+      { type: "leapO", x: 1960, y: 220, minX: 1950, maxX: 2050 }
     ],
     door: { x: 2300, y: GROUND_Y - 90, w: 60, h: 90 }
   }
@@ -175,7 +181,6 @@ let enemies = [];            // enemies alive in the current level
 let cameraX = 0;
 let levelTitleTimer = 0;     // counts down while the level name shows
 let deathTimer = 0;          // counts down after KorbyKid dies
-let deathMessage = "";       // how KorbyKid died, shown on the death screen
 let finishTimer = 0;         // counts down after KorbyKid enters the door
 let attackTimer = 0;         // counts down while KorbyKid is in attack mode
 let lives = MAX_LIVES;       // hearts left (saved in browser storage)
@@ -387,6 +392,8 @@ function loadLevel(index) {
     dir: Math.random() < 0.5 ? -1 : 1,                // 1 = right, -1 = left
     speed: ENEMY_SPEED * ENEMY_TYPES[e.type].speedMultiplier * (0.7 + Math.random() * 0.8),
     pauseTimer: 0,                                    // frames left to stand still
+    baseY: e.y,                                       // flying enemies bob around this height
+    bobTime: Math.random() * Math.PI * 2,             // where in its bob cycle the enemy starts
     dying: false,                                     // true after he is destroyed
     deathTimer: 0,                                    // frames left showing the death picture
     vy: 0                                             // falling speed after the death picture
@@ -403,8 +410,7 @@ function loadLevel(index) {
 }
 
 // Called whenever KorbyKid takes damage. Each hit costs one heart.
-// reason is the sentence shown on the death screen if this was his last heart.
-function loseHeart(reason) {
+function loseHeart() {
   if (deathTimer > 0) return;
 
   lives--;
@@ -412,9 +418,8 @@ function loseHeart(reason) {
   saveProgress();
 
   if (lives <= 0) {
-    // Out of hearts: show the death screen, then restart the level
+    // Out of hearts: show the death background, then restart the level
     deathTimer = DEATH_FRAMES;
-    deathMessage = reason;
   } else {
     // Still alive: he stays where he is, shows his hurt picture, and can't be hurt again for a moment
     invulnerableTimer = INVULNERABLE_FRAMES;
@@ -433,7 +438,7 @@ function knockBackPlayer(enemy) {
 
 // Falling into a hole costs a heart, then KorbyKid goes back to the start of the level
 function fallIntoHole() {
-  loseHeart("You fell into a hole.");
+  loseHeart();
   if (deathTimer === 0) {
     player.x = level.start.x;
     player.y = level.start.y;
@@ -509,6 +514,7 @@ function updatePlayer() {
   player.x += player.vx;
   handleHorizontalCollisions();
   const previousBottom = player.y + player.h;   // where his feet were before this frame
+  player.previousBottom = previousBottom;       // remembered for stomping enemies
   player.y += player.vy;
   handleVerticalCollisions(previousBottom);
 
@@ -562,6 +568,12 @@ function updateEnemies() {
       continue;
     }
 
+    // Flying enemies don't chase or walk on the ground
+    if (ENEMY_TYPES[e.type].flies) {
+      updateFlyingEnemy(e, ENEMY_TYPES[e.type]);
+      continue;
+    }
+
     const playerIsClose = deathTimer === 0 &&
       Math.abs(player.x - e.x) < ENEMY_CHASE_RANGE &&
       Math.abs(player.y - e.y) < ENEMY_CHASE_HEIGHT;
@@ -588,6 +600,13 @@ function updateEnemies() {
 
   // Remove enemies that have fallen off the bottom of the level
   enemies = enemies.filter(e => !(e.dying && e.y > level.height));
+}
+
+// Flying enemies drift side to side and bob up and down around their starting height
+function updateFlyingEnemy(e, type) {
+  e.bobTime += type.bobSpeed;
+  e.y = e.baseY + Math.sin(e.bobTime) * type.bobHeight;
+  moveEnemy(e, e.speed);
 }
 
 // A killed enemy shows its death picture for a moment, then falls off the map
@@ -630,9 +649,17 @@ function checkEnemyCollisions() {
       continue;
     }
 
-    // Otherwise any touch costs a heart, even jumping on top (unless he just got hit)
+    // Landing directly on top of an enemy destroys it and bounces KorbyKid back up
+    if (player.vy > 0 && player.previousBottom <= e.y + STOMP_TOLERANCE) {
+      startEnemyDeath(e);
+      player.y = e.y - player.h;
+      player.vy = STOMP_BOUNCE;
+      continue;
+    }
+
+    // Otherwise any touch costs a heart (unless he just got hit)
     if (invulnerableTimer === 0) {
-      loseHeart("You were killed by an enemy.");
+      loseHeart();
       if (deathTimer === 0) knockBackPlayer(e);
     }
   }
@@ -786,8 +813,8 @@ function drawBackground() {
 
 function drawPlatforms() {
   for (const p of level.platforms) {
-    if (imageReady("platform")) {
-      ctx.drawImage(images.platform, p.x, p.y, p.w, p.h);
+    if (imageReady(level.platformImage)) {
+      ctx.drawImage(images[level.platformImage], p.x, p.y, p.w, p.h);
     } else {
       ctx.fillStyle = "#7e5aa8";
       ctx.fillRect(p.x, p.y, p.w, p.h);
@@ -810,11 +837,11 @@ function drawDoor() {
 function drawEnemies() {
   for (const e of enemies) {
     const type = ENEMY_TYPES[e.type];
-    const picture = e.dying ? type.deathImage : type.image;
+    const picture = type.image;
     if (imageReady(picture)) {
       ctx.drawImage(images[picture], e.x, e.y, e.w, e.h);
     } else {
-      ctx.fillStyle = e.dying ? "#444" : type.color;
+      ctx.fillStyle = type.color;
       ctx.fillRect(e.x, e.y, e.w, e.h);
     }
   }
@@ -880,8 +907,6 @@ function drawDeathScreen() {
     ctx.fillStyle = "#1a0000";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
   }
-  drawMessage("You Died", HEIGHT / 2 - 30);
-  drawMessage(deathMessage, HEIGHT / 2 + 30);
 }
 
 // ---------- Keyboard and mouse input ----------

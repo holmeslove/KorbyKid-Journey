@@ -15,7 +15,7 @@ A 2D platformer made with plain HTML, CSS and JavaScript.
 | Go through a door | Stand in the door and press Up arrow or W |
 | Attack (lasts 2 seconds) | Shift |
 
-KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Jumping on an enemy also counts as a hit. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death screen shows and the level restarts with 3 hearts.
+KorbyKid starts with 3 hearts (shown in the top left). Each hit costs one heart. He is pushed away from the enemy that hit him, and then flashes for a moment so he can't be hit again right away. Landing directly on top of an enemy destroys it and bounces him up; touching one from the side counts as a hit. Falling into a hole costs a heart and sends him back to the start of the level. When he runs out of hearts, the death background shows and the level restarts with 3 hearts.
 
 Platforms are one-way: jump up through them from below, and land on them when you fall down onto the top.
 
@@ -48,16 +48,14 @@ Put these PNG files in the `assets` folder with exactly these names. If a file i
 | `korbykid-walking.png` | KorbyKid walking (facing right; the game mirrors it when he walks left) |
 | `korbykid-death.png` | KorbyKid's hurt picture, shown for 1.5 seconds after a hit |
 | `jeremy.png` | Jeremy, the level 1 enemy |
-| `jeremy-death.png` | Jeremy when he is destroyed |
-| `leap-o.png` | Leap-O, the level 2 enemy |
-| `leap-o-death.png` | Leap-O when he is destroyed |
+| `leap-o.png` | Leap-O, the level 2 flying enemy (flies in the air, ignores platforms) |
 | `ufi.png` | The third normal enemy, UFI |
-| `ufi-death.png` | UFI when destroyed |
 | `evil-mr-loodle.png` | Evil Mr. Loodle, the final boss (boss fight comes later) |
-| `evil-mr-loodle-death.png` | Evil Mr. Loodle when destroyed |
 | `heart.png` | A full heart (lives left) in the top left corner |
 | `heart-empty.png` | An empty heart (lives lost) in the top left corner |
-| `platform.png` | Platform and ground tile |
+| `grass-platform.png` | Platform and ground tile for level 1 |
+| `magma-platform.png` | Platform and ground tile for level 2 |
+| `liquid-platform.png` | Platform and ground tile for level 3 (not built yet) |
 | `door.png` | The door at the end of a level |
 | `background1.png` | Level 1 background (The Mysterious Planet) |
 | `background2.png` | Level 2 background (The Crystal Caves) |
