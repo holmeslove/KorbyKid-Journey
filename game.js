@@ -716,6 +716,7 @@ function loseHeart() {
   } else {
     // Still alive: he stays where he is, shows his hurt picture, and can't be hurt again for a moment
     invulnerableTimer = INVULNERABLE_FRAMES;
+    shakeTimer = 12;   // shake the screen a little
     playKorbyImpactSound();
     hurtGraphicTimer = HURT_GRAPHIC_FRAMES;
   }
@@ -1029,6 +1030,7 @@ function hitEnemy(e) {
 function startEnemyDeath(e) {
   rollHeartDrop(e);
   e.flashTimer = 12;
+  spawnSparks(e.x + e.w / 2, e.y + e.h / 2, ENEMY_TYPES[e.type].color, 14);
   e.dying = true;
   e.deathTimer = ENEMY_DEATH_FRAMES;
   e.vy = 0;
@@ -1098,6 +1100,49 @@ function checkEnemyCollisions() {
   }
 }
 
+// ---------- Confetti for the win screen ----------
+let confetti = [];
+
+function spawnConfetti() {
+  const colors = ["#ffcc00", "#ff4d7a", "#29adff", "#00e436", "#ffffff"];
+  confetti = [];
+  for (let i = 0; i < 120; i++) {
+    confetti.push({
+      x: Math.random() * WIDTH,
+      y: -Math.random() * HEIGHT,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: 1 + Math.random() * 2.5,
+      size: 6 + Math.random() * 5,
+      color: colors[i % colors.length],
+      spin: Math.random() * Math.PI * 2
+    });
+  }
+}
+
+function updateConfetti() {
+  for (const c of confetti) {
+    c.x += c.vx;
+    c.y += c.vy;
+    c.spin += 0.1;
+    // Confetti that falls off the bottom comes back in at the top
+    if (c.y > HEIGHT + 10) {
+      c.y = -10;
+      c.x = Math.random() * WIDTH;
+    }
+  }
+}
+
+function drawConfetti() {
+  for (const c of confetti) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.spin);
+    ctx.fillStyle = c.color;
+    ctx.fillRect(-c.size / 2, -c.size / 4, c.size, c.size / 2);
+    ctx.restore();
+  }
+}
+
 // ---------- The final boss, the victory, and the win screen ----------
 const BOSS_PATTERN_FRAMES = 240;   // the boss drifts for 4 seconds...
 const BOSS_ATTACK_FRAMES = 150;    // ...then dives at KorbyKid for 2.5 seconds
@@ -1113,6 +1158,7 @@ let victoryBaseY = 0;
 let victoryX = 0;
 let victoryY = 0;
 let winTimer = 0;
+let winPreview = false;   // true when the win screen was opened for testing (?level=win), so it stays up
 
 const successSound = new Audio("sounds/success.mp3");
 
@@ -1208,16 +1254,19 @@ victoryY = victoryBaseY - VICTORY_LOOP_RADIUS - victoryTimer * 0.4 + VICTORY_LOO
   // Once they have flown off screen, show the win screen
   if (victoryX - cameraX > WIDTH + 100) {
     gameState = "win";
-    winTimer = WIN_FRAMES;
+    spawnConfetti();
+    setWinButtonVisible(true);
   }
 }
 
 // The win screen: after 5 seconds, everything restarts from the intro
+// The win screen stays up until the player presses Return to Title
 function updateWin() {
-  winTimer--;
-  if (winTimer <= 0) {
-    returnToTitle();
-  }
+  updateConfetti();
+}
+
+function setWinButtonVisible(isVisible) {
+  document.getElementById("win-title-button").hidden = !isVisible;
 }
 
 // Draws a picture at a set height, with its own width, so it is never squashed.
@@ -1258,8 +1307,52 @@ function drawWin() {
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
   }
 
+  drawConfetti();
+
   // Temporary win message (to be replaced later)
-  drawMessage("You saved Mr. Loodle from evil!", HEIGHT / 2);
+  drawMessage("You saved Mr. Loodle from evil!", HEIGHT - 120);
+}
+
+// ---------- Sparks and screen shake (polish) ----------
+let sparks = [];
+let shakeTimer = 0;   // frames left of screen shake after KorbyKid is hurt
+
+// A little burst of sparks, for when an enemy is destroyed or a heart is collected
+function spawnSparks(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 3;
+    sparks.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 1,
+      life: 24,
+      color: color,
+      size: 2 + Math.random() * 3
+    });
+  }
+}
+
+function updateSparks() {
+  for (const s of sparks) {
+    s.x += s.vx;
+    s.y += s.vy;
+    s.vy += 0.15;   // a little gravity, so the sparks arc down
+    s.life--;
+  }
+  sparks = sparks.filter(s => s.life > 0);
+}
+
+function drawSparks() {
+  for (const s of sparks) {
+    ctx.globalAlpha = s.life / 24;   // fade out as they die
+    ctx.fillStyle = s.color;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 }
 
 // ---------- Hearts that enemies leave behind ----------
@@ -1341,6 +1434,7 @@ function updateHeartPickups() {
       h.collected = true;
       lives = Math.min(MAX_LIVES, lives + 1);
       playHeartSound();
+      spawnSparks(h.x + h.w / 2, h.y + h.h / 2, "#ff4d7a", 16);
       saveProgress();
     }
   }
@@ -1516,6 +1610,7 @@ function update() {
   if (levelTitleTimer > 0) levelTitleTimer--;
   if (invulnerableTimer > 0) invulnerableTimer--;
   if (hurtGraphicTimer > 0) hurtGraphicTimer--;
+  if (shakeTimer > 0) shakeTimer--;
 
   // After losing his last heart, the death screen waits for the Continue button
   if (deathTimer > 0) {
@@ -1536,6 +1631,7 @@ function update() {
   updateBullets();
   updatePendingEnemies();
   updateHeartPickups();
+  updateSparks();
   if (deathTimer === 0) checkDoor();
   updateCamera();
 }
@@ -1544,6 +1640,11 @@ function update() {
 function draw() {
   // Scale the 960 x 540 game grid to fill the whole canvas
   ctx.setTransform(canvas.width / WIDTH, 0, 0, canvas.height / HEIGHT, 0, 0);
+
+  // A small shake of the whole picture after KorbyKid is hurt
+  if (shakeTimer > 0) {
+    ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8);
+  }
 
   if (gameState === "intro") {
     drawIntro();
@@ -1582,6 +1683,7 @@ function draw() {
   drawEnemies();
   drawBullets();
   drawHeartPickups();
+  drawSparks();
   // Flash on and off while he is protected after a hit
   // After a hit, KorbyKid flashes red on and off (instead of blinking out of sight)
   const redFlashOn = invulnerableTimer > 0 && Math.floor(invulnerableTimer / 6) % 2 === 0;
@@ -1742,7 +1844,16 @@ function drawEnemyPicture(e, type, picture) {
   if (type.keepProportions && img && img.naturalHeight > 0) {
     drawAtHeight(img, e.x + e.w / 2, e.y + e.h, e.h, e.dir === -1);
   } else {
-    drawFlippedImage(img, e.x, e.y, e.w, e.h, e.dir === -1);
+    const walking = !type.flies && !type.follows && !type.stationary && !e.dying;
+    if (walking) {
+      // A little squash and stretch, so walking enemies bounce as they go
+      const squash = Math.sin(performance.now() / 110 + e.x * 0.05) * 0.05;
+      const sw = e.w * (1 - squash);
+      const sh = e.h * (1 + squash);
+      drawFlippedImage(img, e.x + (e.w - sw) / 2, e.y + e.h - sh, sw, sh, e.dir === -1);
+    } else {
+      drawFlippedImage(img, e.x, e.y, e.w, e.h, e.dir === -1);
+    }
   }
 }
 
@@ -1808,6 +1919,7 @@ function drawMessage(text, y) {
   ctx.font = "bold 36px Arial";
   ctx.textAlign = "center";
   ctx.lineWidth = 5;
+  ctx.lineJoin = "round";   // rounded corners on the outline, so sharp letters like M don't grow spikes
   ctx.strokeStyle = "black";
   ctx.fillStyle = "white";
   ctx.strokeText(text, WIDTH / 2, y);
@@ -1852,6 +1964,12 @@ function pressPrimaryButton() {
   const continueButton = document.getElementById("continue-button");
   if (deathTimer > 0 && !continueButton.hidden) {
     continueButton.click();
+    return true;
+  }
+
+  const winButton = document.getElementById("win-title-button");
+  if (gameState === "win" && !winButton.hidden) {
+    winButton.click();
     return true;
   }
 
@@ -1902,6 +2020,10 @@ canvas.addEventListener("click", () => {
 document.getElementById("play-button").addEventListener("click", () => startGame());
 document.getElementById("continue-button").addEventListener("click", continueAfterDeath);
 document.getElementById("title-button").addEventListener("click", returnToTitle);
+document.getElementById("win-title-button").addEventListener("click", () => {
+  setWinButtonVisible(false);
+  returnToTitle();
+});
 
 // ---------- Game controllers (USB or Bluetooth, read by the browser) ----------
 // The controller uses the browser's "standard" button layout:
@@ -2200,6 +2322,16 @@ requestAnimationFrame(gameLoop);
 
 // Development shortcut: add ?level=1, ?level=2 or ?level=3 to the page address
 // to skip the title screen and start straight in that level.
+// ?level=win jumps straight to the win screen (for testing). It stays up until the page is reloaded.
+if (new URLSearchParams(window.location.search).get("level") === "win") {
+  gameState = "win";
+  winTimer = WIN_FRAMES;
+  spawnConfetti();
+  setMenuVisible(false);
+  setWinButtonVisible(true);
+  winPreview = true;
+}
+
 // ?level=0 (or leaving it out) shows the title screen as normal.
 const levelParam = parseInt(new URLSearchParams(window.location.search).get("level"), 10);
 if (levelParam >= 1 && levelParam <= LEVELS.length) {

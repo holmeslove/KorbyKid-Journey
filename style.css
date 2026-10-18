@@ -150,6 +150,31 @@ body {
   cursor: pointer;
 }
 
+/* The Return to Title button on the win screen, below the message */
+#win-title-button {
+  position: absolute;
+  left: 62%;
+  top: 62%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  font-weight: bold;
+  padding: 12px 48px;
+  border: none;
+  border-radius: 10px;
+  background: #ffcc00;
+  box-shadow: 0 6px 0 #b38f00;
+  cursor: pointer;
+}
+
+#win-title-button[hidden] {
+  display: none;
+}
+
+#win-title-button:active {
+  transform: translate(-50%, calc(-50% + 4px));
+  box-shadow: none;
+}
+
 /* ---------- Characters screen ---------- */
 #characters-button,
 #characters-back-button {
