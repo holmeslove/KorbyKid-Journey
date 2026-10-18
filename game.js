@@ -39,6 +39,8 @@ const ENEMY_CHASE_BOOST = 1.4;   // chasing enemies move this many times faster
 const ENEMY_PAUSE_CHANCE = 0.01; // chance per frame that a patrolling enemy stops for a moment
 const ENEMY_TURN_CHANCE = 0.005; // chance per frame that a patrolling enemy turns around early
 const ENEMY_SPACING = 10;        // the gap kept between enemies, so they never overlap each other
+// The red flash shown on KorbyKid and enemies when they are hit
+const HIT_FLASH_FILTER = "sepia(1) saturate(6) hue-rotate(-50deg) brightness(0.9)";
 const ENEMY_HIT_COOLDOWN = 40;   // after a hit that doesn't destroy an enemy, it waits this many frames before counting another
 const GUN_SHOOT_FRAMES = 120;    // the gun fires every 2 seconds
 const BULLET_W = 30;             // the size of a bullet, in the game's grid
@@ -250,11 +252,11 @@ const LEVELS = [
     background: "bossBackground",
     platformImage: "bossFloor",
     music: "music/bossfight.mp3",
-    width: 1600,
+    width: WIDTH,   // exactly one screen wide, so the whole fight is on screen and nothing scrolls
     height: HEIGHT,
     start: { x: 60, y: GROUND_Y - PLAYER_H },
     platforms: [
-      { x: 0, y: GROUND_Y, w: 1600, h: 40 }
+      { x: 0, y: GROUND_Y, w: WIDTH, h: 40 }
     ],
     enemies: [
       { type: "evilLoodle", x: 900, y: 150, minX: 0, maxX: 0 }
@@ -668,6 +670,7 @@ function loadLevel(index) {
     modeTimer: BOSS_PATTERN_FRAMES,                   // frames left in the current boss mode
     appearTimer: e.delay || 0,                        // frames before this enemy appears (0 = from the start)
     hits: 0,                                          // hits taken so far (Cloopy needs 5)
+    flashTimer: 0,                                    // frames left showing the red hit flash
     hitCooldown: 0,                                   // frames before another hit counts
     baseY: e.y,                                       // flying enemies bob around this height
     bobTime: Math.random() * Math.PI * 2,             // where in its bob cycle the enemy starts
@@ -687,6 +690,7 @@ function loadLevel(index) {
 
   cameraX = 0;
   bullets = [];
+  heartPickups = [];
   deathTimer = 0;
   finishTimer = 0;
   attackTimer = 0;
@@ -877,6 +881,7 @@ function handleVerticalCollisions(previousBottom) {
 function updateEnemies() {
   for (const e of enemies) {
     if (e.hitCooldown > 0) e.hitCooldown--;
+    if (e.flashTimer > 0) e.flashTimer--;
 
     if (e.dying) {
       updateDyingEnemy(e);
@@ -1007,6 +1012,8 @@ function hitEnemy(e) {
 
   playImpactSound();
   e.hits++;
+  e.flashTimer = 12;   // flash red for a fifth of a second
+  if (ENEMY_TYPES[e.type].boss) rollHeartDrop(e);   // the boss can drop a heart on any hit
   if (e.hits >= (e.hitsToKill || ENEMY_TYPES[e.type].hitsToKill || 1)) {
     if (ENEMY_TYPES[e.type].boss) {
       startVictory();   // defeating the boss ends the game
@@ -1020,6 +1027,8 @@ function hitEnemy(e) {
 }
 
 function startEnemyDeath(e) {
+  rollHeartDrop(e);
+  e.flashTimer = 12;
   e.dying = true;
   e.deathTimer = ENEMY_DEATH_FRAMES;
   e.vy = 0;
@@ -1253,6 +1262,96 @@ function drawWin() {
   drawMessage("You saved Mr. Loodle from evil!", HEIGHT / 2);
 }
 
+// ---------- Hearts that enemies leave behind ----------
+// The chance an enemy drops a heart when it is destroyed. A range means a random chance
+// is picked each time one is destroyed. The final boss is in the table too: it rolls each time it is hit.
+const HEART_DROP_CHANCES = {
+  jeremy: [0.10, 0.10],
+  leapO: [0.30, 0.30],
+  smooley: [0.5, 0.5],
+  cloopy: [1, 1],
+  ufi: [0.7, 0.7],
+  evilLoodle: [0.15, 0.15],
+  gun: [1, 1]
+};
+
+let heartPickups = [];
+
+const heartSound = new Audio("sounds/heartcollected.mp3");
+
+function playHeartSound() {
+  const copy = heartSound.cloneNode();
+  copy.volume = soundVolume / 10;
+  copy.play().catch(() => {});
+}
+
+// Rolls for a heart drop. If it succeeds, a heart appears where the enemy was.
+function rollHeartDrop(e) {
+  const range = HEART_DROP_CHANCES[e.type];
+  if (!range) return;
+  const chance = range[0] + Math.random() * (range[1] - range[0]);
+  if (Math.random() < chance) {
+    heartPickups.push({
+      x: e.x + e.w / 2 - HEART_SIZE / 2,
+      y: e.y + e.h / 2 - HEART_SIZE / 2,
+      w: HEART_SIZE,
+      h: HEART_SIZE,
+      vy: 0,
+      landed: false,
+      collected: false
+    });
+  }
+}
+
+// Hearts fall until they land on the platform or floor beneath them, then wait to be collected
+function updateHeartPickups() {
+  for (const h of heartPickups) {
+    if (!h.landed) {
+      const previousBottom = h.y + h.h;
+      h.vy = Math.min(h.vy + GRAVITY, MAX_FALL_SPEED);
+      h.y += h.vy;
+
+      // Find the highest platform below the heart that it has come down onto
+      let landingOn = null;
+      for (const p of level.platforms) {
+        const overlapsX = h.x < p.x + p.w && h.x + h.w > p.x;
+        const comesDownOnto = previousBottom <= p.y && h.y + h.h >= p.y;
+        if (overlapsX && comesDownOnto && (!landingOn || p.y < landingOn.y)) {
+          landingOn = p;
+        }
+      }
+      if (landingOn) {
+        h.y = landingOn.y - h.h;
+        h.vy = 0;
+        h.landed = true;
+      }
+    }
+
+    // Collecting a heart restores one life (up to the most lives KorbyKid can have)
+    if (rectsOverlap(player, h)) {
+      h.collected = true;
+      lives = Math.min(MAX_LIVES, lives + 1);
+      playHeartSound();
+      saveProgress();
+    }
+  }
+
+  heartPickups = heartPickups.filter(h => !h.collected && h.y <= level.height);
+}
+
+function drawHeartPickups() {
+  for (const h of heartPickups) {
+    if (imageReady("heart")) {
+      ctx.drawImage(images.heart, h.x, h.y, h.w, h.h);
+    } else {
+      ctx.fillStyle = "#ff004d";
+      ctx.beginPath();
+      ctx.arc(h.x + h.w / 2, h.y + h.h / 2, h.w / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
 // ---------- Enemies that arrive later ----------
 // Some enemies (the second half of the Smooleys) are not in the level at the start.
 // They join the level when their timer runs out.
@@ -1426,6 +1525,7 @@ function update() {
   updateEnemies();
   updateBullets();
   updatePendingEnemies();
+  updateHeartPickups();
   if (deathTimer === 0) checkDoor();
   updateCamera();
 }
@@ -1471,8 +1571,12 @@ function draw() {
   drawDoor();
   drawEnemies();
   drawBullets();
+  drawHeartPickups();
   // Flash on and off while he is protected after a hit
-  const blinkOff = invulnerableTimer > 0 && Math.floor(invulnerableTimer / 6) % 2 === 1;
+  // After a hit, KorbyKid flashes red on and off (instead of blinking out of sight)
+  const redFlashOn = invulnerableTimer > 0 && Math.floor(invulnerableTimer / 6) % 2 === 0;
+  const blinkOff = false;
+  ctx.filter = redFlashOn ? HIT_FLASH_FILTER : "none";
   if (hurtGraphicTimer > 0 && imageReady("korbykidDeath")) {
     // Show his hurt picture for a moment after a hit
     // Keep the picture's own proportions: the lying-down pose is wider than he is standing
@@ -1500,6 +1604,7 @@ function draw() {
     }
   }
   stopShadow();
+  ctx.filter = "none";
   ctx.restore();
 
   drawMessages();
@@ -1640,7 +1745,7 @@ function drawEnemies() {
       // Cloopy goes greyer with each hit, reaching full grey just before his last hit
       const hitsToKill = e.hitsToKill || ENEMY_TYPES[e.type].hitsToKill || 1;
       const greyness = Math.min(1, e.hits / Math.max(1, hitsToKill - 1));
-      ctx.filter = `grayscale(${greyness})`;
+      ctx.filter = `grayscale(${greyness}) ${e.flashTimer > 0 ? HIT_FLASH_FILTER : ""}`;
       if (e.dir === -1 && type.flippedImage && imageReady(type.flippedImage)) {
         // This type has its own picture for facing left, so it is drawn as is
         ctx.drawImage(images[type.flippedImage], e.x, e.y, e.w, e.h);

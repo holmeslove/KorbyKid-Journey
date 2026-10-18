@@ -115,6 +115,12 @@ The `sounds` folder holds sound effects. `gun-shoot.mp3` plays each time the lev
 
 On the title screen, the **Background darkness** slider darkens the level backgrounds (not the title or death screens) to make the characters easier to see. The setting is saved in your browser.
 
+## Hearts from enemies
+
+Some enemies leave a heart behind when they are destroyed. The heart appears where the enemy was, and falls onto whatever is beneath it. Walk into a heart to collect it, which restores one life (up to 3) and plays `sounds/heartcollected.mp3`.
+
+Drop chances: Jeremy 10%, Leap-O 30%, Smooley 50%, Cloopy 100%, UFI 70%, the gun 100%. Evil Mr. Loodle has a 15% chance with each hit. Hearts use `heart.png`.
+
 ## God mode (for testing)
 
 Add `?godmode=true` to the end of the page address and KorbyKid can't take any damage from enemies, bullets or falls. Falling into a hole still sends him back to the start of the level.
