@@ -1275,6 +1275,8 @@ const HEART_DROP_CHANCES = {
   gun: [1, 1]
 };
 
+const HEART_APPEAR_FRAMES = 30;   // a heart waits half a second before it appears, so he is knocked back first
+
 let heartPickups = [];
 
 const heartSound = new Audio("sounds/heartcollected.mp3");
@@ -1298,7 +1300,8 @@ function rollHeartDrop(e) {
       h: HEART_SIZE,
       vy: 0,
       landed: false,
-      collected: false
+      collected: false,
+      appearTimer: HEART_APPEAR_FRAMES
     });
   }
 }
@@ -1306,6 +1309,12 @@ function rollHeartDrop(e) {
 // Hearts fall until they land on the platform or floor beneath them, then wait to be collected
 function updateHeartPickups() {
   for (const h of heartPickups) {
+    // Hidden for a moment after the enemy dies, so KorbyKid can be knocked back before it appears
+    if (h.appearTimer > 0) {
+      h.appearTimer--;
+      continue;
+    }
+
     if (!h.landed) {
       const previousBottom = h.y + h.h;
       h.vy = Math.min(h.vy + GRAVITY, MAX_FALL_SPEED);
@@ -1341,6 +1350,7 @@ function updateHeartPickups() {
 
 function drawHeartPickups() {
   for (const h of heartPickups) {
+    if (h.appearTimer > 0) continue;   // not visible yet
     if (imageReady("heart")) {
       ctx.drawImage(images.heart, h.x, h.y, h.w, h.h);
     } else {
