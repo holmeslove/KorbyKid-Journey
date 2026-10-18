@@ -234,6 +234,92 @@ body {
   padding: 8px 32px;
 }
 
+/* ---------- Polish: hover, pop-in and gentle motion ----------
+   The motion is skipped for people who have asked their computer to reduce motion. */
+#play-button,
+#continue-button,
+#title-button,
+#characters-button,
+#characters-back-button,
+.touch-button {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+#play-button:hover,
+#continue-button:hover,
+#title-button:hover,
+#characters-button:hover,
+#characters-back-button:hover {
+  filter: brightness(1.08);
+}
+
+/* Warm gold for the sliders, to match the buttons */
+input[type="range"] {
+  accent-color: #ffcc00;
+}
+
+.character-card {
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.character-card:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The Play button gently breathes, to invite a press */
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  #play-button {
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+
+  #play-button:active {
+    animation: none;
+  }
+
+  /* Continue and Return to Title pop in when the death screen appears */
+  @keyframes pop-in {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+    70% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+  }
+
+  #continue-button:not([hidden]),
+  #title-button:not([hidden]) {
+    animation: pop-in 0.35s ease-out both;
+  }
+
+  #title-button:not([hidden]) {
+    animation-delay: 0.1s;
+  }
+
+  /* The characters screen fades and slides up */
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  #characters-screen:not([hidden]) {
+    animation: slide-up 0.3s ease-out both;
+  }
+
+  .character-card {
+    animation: slide-up 0.4s ease-out both;
+  }
+
+  .character-card:nth-child(2) { animation-delay: 0.05s; }
+  .character-card:nth-child(3) { animation-delay: 0.10s; }
+  .character-card:nth-child(4) { animation-delay: 0.15s; }
+  .character-card:nth-child(5) { animation-delay: 0.20s; }
+  .character-card:nth-child(6) { animation-delay: 0.25s; }
+  .character-card:nth-child(7) { animation-delay: 0.30s; }
+}
+
 /* ---------- Touch controls (shown only on touch screens) ---------- */
 #touch-controls {
   display: none;
