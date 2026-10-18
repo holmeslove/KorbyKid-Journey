@@ -278,10 +278,6 @@ body {
   filter: brightness(1.08);
 }
 
-/* Warm gold for the sliders, to match the buttons */
-input[type="range"] {
-  accent-color: #ffcc00;
-}
 
 .character-card {
   transition: transform 0.2s ease, background 0.2s ease;
