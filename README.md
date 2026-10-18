@@ -12,6 +12,7 @@ A 2D platformer made with plain HTML, CSS and JavaScript.
 | Walk left | Left arrow or A |
 | Walk right | Right arrow or D |
 | Jump | Space, Up arrow or W |
+| Press the main button on screen (Play, or Continue on the death screen) | Space or Enter |
 | Go through a door | Stand in the door and press Up arrow or W |
 | Drop down through a platform | Down arrow or S, while standing on a platform (not the ground) |
 | Attack (lasts 0.8 seconds) | Shift |
@@ -96,6 +97,12 @@ A USB or Bluetooth game controller works in a supported browser (Chrome or Edge 
 
 Controllers are read as the browser's standard layout, so on some controllers (such as the Switch Pro) the buttons may be in a different place. The keyboard and the on-screen buttons still work with a controller connected.
 
+## The final level
+
+Going through the portal at the end of level 3 starts the final level: floor only, with Evil Mr. Loodle. He drifts around in a figure-eight, then dives at KorbyKid, and it takes 7 to 12 hits (picked at random) to defeat him. When he is defeated, KorbyKid rides Mr. Loodle in loop-de-loops and flies off screen to the sound of `sounds/success.mp3`. The win screen then shows for about 5 seconds, and the game returns to the title screen.
+
+Files used: `music/bossfight.mp3` (during the fight), `sounds/success.mp3` (when he is defeated), `music/win.mp3` (the win music, from the moment he is defeated until the game returns to the title screen), `boss-background.png`, `boss-floor.png`, `evil-mr-loodle.png` and `win_background.png` (in `assets`).
+
 ## Music
 
 Each level plays its own music, looping, from the `music` folder: `level1.mp3`, `level2.mp3` and `level3.mp3`. The music starts when the level begins and stops when you return to the title screen. If a music file is missing, the game is simply silent. On the title screen, the **Music volume** slider sets the music level from 0 to 10.
@@ -107,6 +114,10 @@ The `sounds` folder holds sound effects. `gun-shoot.mp3` plays each time the lev
 ## Background darkness
 
 On the title screen, the **Background darkness** slider darkens the level backgrounds (not the title or death screens) to make the characters easier to see. The setting is saved in your browser.
+
+## God mode (for testing)
+
+Add `?godmode=true` to the end of the page address and KorbyKid can't take any damage from enemies, bullets or falls. Falling into a hole still sends him back to the start of the level.
 
 ## Jumping straight to a level (for testing)
 

@@ -28,6 +28,9 @@ const KNOCKBACK_JUMP = -6;      // and gives him a small hop as he is pushed
 const DROP_FRAMES = 15;         // pressing Down on a platform lets him fall through it for a quarter second
 const WALK_POSE_FRAMES = 15;    // the walking picture stays for a quarter second after he stops
 const SAVE_KEY_LEVEL = "korbykid.level";
+
+// Development setting: add ?godmode=true to the page address and KorbyKid can't take any damage.
+const godMode = new URLSearchParams(window.location.search).get("godmode") === "true";
 const SAVE_KEY_LIVES = "korbykid.lives";
 const ENEMY_SPEED = 1.5;     // average walking speed (each enemy gets a random speed near this)
 const ENEMY_CHASE_RANGE = 220;   // enemies chase KorbyKid when he is this close sideways...
@@ -65,6 +68,9 @@ const IMAGE_FILES = {
   cloopy: "assets/cloopy.png",
   gun: "assets/gun.png",
   gunFlipped: "assets/gun-flipped.png",
+  bossBackground: "assets/boss-background.png",
+  bossFloor: "assets/boss-floor.png",
+  winBackground: "assets/win_background.png",
   smooley: "assets/smooley.png",
   bullet: "assets/bullet.png",
   evilLoodle: "assets/evil-mr-loodle.png",
@@ -103,7 +109,8 @@ const ENEMY_TYPES = {
   // It faces the way it fires, and points right at the start.
   // flippedImage is the picture used when it faces left (drawn as is, not mirrored)
   gun: { image: "gun", flippedImage: "gunFlipped", color: "#555555", speedMultiplier: 1, scale: 1.5, keepProportions: true, stationary: true },
-  evilLoodle: { image: "evilLoodle", color: "#7e2553", speedMultiplier: 1, scale: 1 },
+  // The final boss: about 4 times KorbyKid's size. Each one takes 7 to 12 hits (picked at random).
+  evilLoodle: { image: "evilLoodle", color: "#7e2553", speedMultiplier: 1, scale: 5.6, keepProportions: true, boss: true },
   // Smooley flies and follows KorbyKid around, trying to touch him. Attack mode destroys him.
   smooley: { image: "smooley", color: "#ff77aa", speedMultiplier: 1, scale: 1, follows: true, followSpeed: 1.45 }   // 66% of its old speed of 2.2
 };
@@ -236,6 +243,24 @@ const LEVELS = [
       { type: "ufi", x: 2000, y: GROUND_Y - 132, minX: 1700, maxX: 2400 }
     ],
     door: { x: 2665, y: GROUND_Y - 90, w: 90, h: 90 }
+  },
+  {
+    // The final level: floor only, with Evil Mr. Loodle. Defeating him ends the game.
+    name: "Final Level: Evil Mr. Loodle",
+    background: "bossBackground",
+    platformImage: "bossFloor",
+    music: "music/bossfight.mp3",
+    width: 1600,
+    height: HEIGHT,
+    start: { x: 60, y: GROUND_Y - PLAYER_H },
+    platforms: [
+      { x: 0, y: GROUND_Y, w: 1600, h: 40 }
+    ],
+    enemies: [
+      { type: "evilLoodle", x: 900, y: 150, minX: 0, maxX: 0 }
+    ],
+    door: null,  // there is no portal here: the boss fight ends the game
+    isBossLevel: true   // KorbyKid falls in from the top of the screen, not on Mr. Loodle
   }
 ];
 
@@ -541,7 +566,7 @@ function drawFlyIn() {
     const ridingY = introY - PLAYER_H + 10;
     const ridingH = MR_LOODLE_H + PLAYER_H - 10;
     if (imageReady("korbykidRiding")) {
-      ctx.drawImage(images.korbykidRiding, introX, ridingY, MR_LOODLE_W, ridingH);
+      drawRidingPicture(introX + MR_LOODLE_W / 2, introY + MR_LOODLE_H, ridingH);
     } else {
       // Placeholder until korbykid-riding.png exists: Mr. Loodle with KorbyKid on top
       ctx.fillStyle = "#8fd14f";
@@ -574,8 +599,12 @@ function startGame(levelIndex) {
   if (levelIndex !== undefined) currentLevelIndex = levelIndex;
   loadLevel(currentLevelIndex);
   playLevelMusic(currentLevelIndex);
-  resetFlyIn();
-  gameState = "flyin";
+  if (level.isBossLevel) {
+    gameState = "playing";   // the final level has no Mr. Loodle fly-in: KorbyKid falls in instead
+  } else {
+    resetFlyIn();
+    gameState = "flyin";
+  }
 }
 
 function randomBetween(min, max) {
@@ -633,6 +662,10 @@ function loadLevel(index) {
     speed: ENEMY_SPEED * ENEMY_TYPES[e.type].speedMultiplier * (0.7 + Math.random() * 0.8),
     pauseTimer: 0,                                    // frames left to stand still
     shootTimer: GUN_SHOOT_FRAMES,                     // frames until the gun fires again
+    hitsToKill: ENEMY_TYPES[e.type].boss ? 7 + Math.floor(Math.random() * 6) : undefined,   // the boss takes 7 to 12 hits
+    homeX: e.x,                                       // the boss drifts around this spot
+    bossAttacking: false,                             // the boss alternates between drifting and diving at KorbyKid
+    modeTimer: BOSS_PATTERN_FRAMES,                   // frames left in the current boss mode
     appearTimer: e.delay || 0,                        // frames before this enemy appears (0 = from the start)
     hits: 0,                                          // hits taken so far (Cloopy needs 5)
     hitCooldown: 0,                                   // frames before another hit counts
@@ -647,6 +680,11 @@ function loadLevel(index) {
   pendingEnemies = enemies.filter(e => e.appearTimer > 0);
   enemies = enemies.filter(e => e.appearTimer === 0);
 
+  // In the final level, KorbyKid starts above the screen and falls down onto the floor
+  if (level.isBossLevel) {
+    player.y = -PLAYER_H - 60;
+  }
+
   cameraX = 0;
   bullets = [];
   deathTimer = 0;
@@ -660,7 +698,7 @@ function loadLevel(index) {
 
 // Called whenever KorbyKid takes damage. Each hit costs one heart.
 function loseHeart() {
-  if (deathTimer > 0) return;
+  if (godMode || deathTimer > 0 || gameState !== "playing") return;
 
   lives--;
   triggerDamageFlash();
@@ -681,6 +719,7 @@ function loseHeart() {
 
 // Push KorbyKid away from the enemy that hit him, with a small hop
 function knockBackPlayer(enemy) {
+  if (godMode) return;   // no damage means no push-back either
   const playerCenter = player.x + player.w / 2;
   const enemyCenter = enemy.x + enemy.w / 2;
   player.knockbackDir = playerCenter < enemyCenter ? -1 : 1;
@@ -844,6 +883,12 @@ function updateEnemies() {
       continue;
     }
 
+    // The final boss alternates between a drifting pattern and diving at KorbyKid
+    if (ENEMY_TYPES[e.type].boss) {
+      updateBoss(e, ENEMY_TYPES[e.type]);
+      continue;
+    }
+
     // Stationary enemies (the gun) stay where they are and fire on a timer
     if (ENEMY_TYPES[e.type].stationary) {
       updateGun(e);
@@ -962,8 +1007,12 @@ function hitEnemy(e) {
 
   playImpactSound();
   e.hits++;
-  if (e.hits >= (ENEMY_TYPES[e.type].hitsToKill || 1)) {
-    startEnemyDeath(e);
+  if (e.hits >= (e.hitsToKill || ENEMY_TYPES[e.type].hitsToKill || 1)) {
+    if (ENEMY_TYPES[e.type].boss) {
+      startVictory();   // defeating the boss ends the game
+    } else {
+      startEnemyDeath(e);
+    }
   } else {
     e.hitCooldown = ENEMY_HIT_COOLDOWN;
   }
@@ -1038,6 +1087,170 @@ function checkEnemyCollisions() {
       if (deathTimer === 0) knockBackPlayer(e);
     }
   }
+}
+
+// ---------- The final boss, the victory, and the win screen ----------
+const BOSS_PATTERN_FRAMES = 240;   // the boss drifts for 4 seconds...
+const BOSS_ATTACK_FRAMES = 150;    // ...then dives at KorbyKid for 2.5 seconds
+const BOSS_ATTACK_SPEED = 3.4;
+const VICTORY_LOOP_FRAMES = 240;   // KorbyKid loops for 4 seconds after the boss is defeated
+const VICTORY_LOOP_RADIUS = 150;   // big loops, so they fill the sky
+const WIN_FRAMES = 300;            // the win screen shows for 5 seconds
+
+// Victory and win screen state
+let victoryTimer = 0;
+let victoryBaseX = 0;
+let victoryBaseY = 0;
+let victoryX = 0;
+let victoryY = 0;
+let winTimer = 0;
+
+const successSound = new Audio("sounds/success.mp3");
+
+// The win music replaces the boss fight music once Evil Mr. Loodle is defeated.
+// It keeps looping through the victory and the win screen, until the game returns to the title.
+function playWinMusic() {
+  levelMusic.src = "music/win.mp3";
+  levelMusic.play().catch(() => {});
+}
+
+function playSuccessSound() {
+  const copy = successSound.cloneNode();
+  copy.volume = soundVolume / 10;
+  copy.play().catch(() => {});
+}
+
+// Moves the boss: it drifts in a figure-eight, then dives at KorbyKid, then drifts again
+function updateBoss(e, type) {
+  if (deathTimer > 0) return;
+
+  e.modeTimer--;
+  if (e.modeTimer <= 0) {
+    e.bossAttacking = !e.bossAttacking;
+    e.modeTimer = e.bossAttacking ? BOSS_ATTACK_FRAMES : BOSS_PATTERN_FRAMES;
+  }
+
+  if (e.bossAttacking) {
+    const dx = (player.x + player.w / 2) - (e.x + e.w / 2);
+    const dy = (player.y + player.h / 2) - (e.y + e.h / 2);
+    const distance = Math.hypot(dx, dy);
+    if (distance > 0) {
+      const step = Math.min(BOSS_ATTACK_SPEED, distance);
+      e.x += dx / distance * step;
+      e.y += dy / distance * step;
+    }
+    e.dir = dx < 0 ? -1 : 1;
+  } else {
+    // Drift towards a point on a figure-eight, easing so the boss never jumps
+    e.bobTime += 0.02;
+    // Drift on the right side of the screen, so the boss never sits in the middle of the floor
+    // where KorbyKid walks, and never drifts off screen.
+    const targetX = clamp(
+      cameraX + WIDTH * 0.85 + Math.sin(e.bobTime) * 130,
+      cameraX + 20,
+      cameraX + WIDTH - e.w - 20
+    );
+    const targetY = e.baseY + Math.sin(e.bobTime * 2) * 70;
+    e.dir = targetX < e.x ? -1 : 1;
+    e.x += (targetX - e.x) * 0.08;
+    e.y += (targetY - e.y) * 0.08;
+  }
+
+  // Stay inside the level, above the floor
+  e.x = clamp(e.x, 0, level.width - e.w);
+  // Keep his lowest point above head height, so KorbyKid can always walk underneath him
+  e.y = clamp(e.y, 0, GROUND_Y - PLAYER_H - 30 - e.h);
+}
+
+// Defeating the boss: the boss is gone, and KorbyKid rides Mr. Loodle off screen
+function startVictory() {
+  gameState = "victory";
+  victoryTimer = 0;
+  victoryBaseX = player.x;
+  victoryBaseY = player.y;
+  victoryX = player.x;
+  victoryY = player.y;
+  attackTimer = 0;
+  playSuccessSound();
+  playWinMusic();
+}
+
+function updateVictory() {
+  victoryTimer++;
+  if (victoryTimer === 1) {
+    enemies = [];
+    pendingEnemies = [];
+    bullets = [];
+  }
+
+  if (victoryTimer <= VICTORY_LOOP_FRAMES) {
+    // Loop-de-loops: a circle that also travels forward
+    const angle = victoryTimer * 0.12;
+    victoryX = victoryBaseX + victoryTimer * 3 + VICTORY_LOOP_RADIUS * Math.sin(angle);
+    // The loops rise slowly, so they travel up into the sky as they go
+victoryY = victoryBaseY - VICTORY_LOOP_RADIUS - victoryTimer * 0.4 + VICTORY_LOOP_RADIUS * Math.cos(angle);
+  } else {
+    // Then they fly off to the right
+    victoryX += 3;   // half the speed of before, so the fly-off lasts about twice as long
+  }
+
+  cameraX = clamp(victoryX + PLAYER_W / 2 - WIDTH / 2, 0, level.width - WIDTH);
+
+  // Once they have flown off screen, show the win screen
+  if (victoryX - cameraX > WIDTH + 100) {
+    gameState = "win";
+    winTimer = WIN_FRAMES;
+  }
+}
+
+// The win screen: after 5 seconds, everything restarts from the intro
+function updateWin() {
+  winTimer--;
+  if (winTimer <= 0) {
+    returnToTitle();
+  }
+}
+
+// Draws a picture at a set height, with its own width, so it is never squashed.
+// centerX and bottomY say where the bottom middle of the picture goes.
+function drawAtHeight(img, centerX, bottomY, height, flip) {
+  const width = height * img.naturalWidth / img.naturalHeight;
+  drawFlippedImage(img, centerX - width / 2, bottomY - height, width, height, flip);
+}
+
+// KorbyKid riding Mr. Loodle, drawn as one picture at its own proportions
+function drawRidingPicture(centerX, bottomY, height) {
+  drawAtHeight(images.korbykidRiding, centerX, bottomY, height, false);
+}
+
+// KorbyKid riding Mr. Loodle, drawn as one picture (the same as the level start)
+function drawRiding(x, y) {
+  if (imageReady("korbykidRiding")) {
+    drawRidingPicture(x + MR_LOODLE_W / 2, y + MR_LOODLE_H, MR_LOODLE_H + PLAYER_H - 10);
+  } else {
+    drawKorbyKid(x, y, PLAYER_W, PLAYER_H, false, false);
+  }
+}
+
+function drawVictory() {
+  drawBackground();
+  ctx.save();
+  ctx.translate(-cameraX, 0);
+  drawPlatforms();
+  drawRiding(victoryX, victoryY);
+  ctx.restore();
+}
+
+function drawWin() {
+  if (imageReady("winBackground")) {
+    ctx.drawImage(images.winBackground, 0, 0, WIDTH, HEIGHT);
+  } else {
+    ctx.fillStyle = "#101840";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  }
+
+  // Temporary win message (to be replaced later)
+  drawMessage("You saved Mr. Loodle from evil!", HEIGHT / 2);
 }
 
 // ---------- Enemies that arrive later ----------
@@ -1158,7 +1371,7 @@ function drawBullets() {
 // ---------- Door and camera ----------
 function checkDoor() {
   // Walk into the door and press Up (or W) to go through it
-  if (keys.up && rectsOverlap(player, level.door)) {
+  if (level.door && keys.up && rectsOverlap(player, level.door)) {
     finishTimer = 60;
   }
 }
@@ -1178,6 +1391,16 @@ function update() {
 
   if (gameState === "flyin") {
     updateFlyIn();
+    return;
+  }
+
+  if (gameState === "victory") {
+    updateVictory();
+    return;
+  }
+
+  if (gameState === "win") {
+    updateWin();
     return;
   }
 
@@ -1219,6 +1442,16 @@ function draw() {
 
   if (gameState === "flyin") {
     drawFlyIn();
+    return;
+  }
+
+  if (gameState === "victory") {
+    drawVictory();
+    return;
+  }
+
+  if (gameState === "win") {
+    drawWin();
     return;
   }
 
@@ -1376,6 +1609,7 @@ function roundedRectPath(x, y, w, h, r) {
 
 function drawDoor() {
   const d = level.door;
+  if (!d) return;   // the final level has no portal
   if (imageReady("door")) {
     ctx.drawImage(images.door, d.x, d.y, d.w, d.h);
   } else {
@@ -1386,6 +1620,17 @@ function drawDoor() {
   }
 }
 
+// Draws an enemy's picture. Enemies with keepProportions are drawn at their picture's own shape
+// (centred in their box), so they are never squashed.
+function drawEnemyPicture(e, type, picture) {
+  const img = images[picture];
+  if (type.keepProportions && img && img.naturalHeight > 0) {
+    drawAtHeight(img, e.x + e.w / 2, e.y + e.h, e.h, e.dir === -1);
+  } else {
+    drawFlippedImage(img, e.x, e.y, e.w, e.h, e.dir === -1);
+  }
+}
+
 function drawEnemies() {
   for (const e of enemies) {
     const type = ENEMY_TYPES[e.type];
@@ -1393,14 +1638,14 @@ function drawEnemies() {
     if (imageReady(picture)) {
       // Mirror the picture when the enemy is moving left
       // Cloopy goes greyer with each hit, reaching full grey just before his last hit
-      const hitsToKill = ENEMY_TYPES[e.type].hitsToKill || 1;
+      const hitsToKill = e.hitsToKill || ENEMY_TYPES[e.type].hitsToKill || 1;
       const greyness = Math.min(1, e.hits / Math.max(1, hitsToKill - 1));
       ctx.filter = `grayscale(${greyness})`;
       if (e.dir === -1 && type.flippedImage && imageReady(type.flippedImage)) {
         // This type has its own picture for facing left, so it is drawn as is
         ctx.drawImage(images[type.flippedImage], e.x, e.y, e.w, e.h);
       } else {
-        drawFlippedImage(images[picture], e.x, e.y, e.w, e.h, e.dir === -1);
+        drawEnemyPicture(e, type, picture);
       }
       ctx.filter = "none";
     } else {
@@ -1480,6 +1725,24 @@ function startAttack() {
   }
 }
 
+// Space or Enter presses the main button on screen: Play on the title screen,
+// and Continue on the death screen. Returns true if it pressed one.
+function pressPrimaryButton() {
+  const menuShown = document.getElementById("menu").classList.contains("visible");
+  if (gameState === "intro" && menuShown) {
+    document.getElementById("play-button").click();
+    return true;
+  }
+
+  const continueButton = document.getElementById("continue-button");
+  if (deathTimer > 0 && !continueButton.hidden) {
+    continueButton.click();
+    return true;
+  }
+
+  return false;
+}
+
 function setKey(code, isDown) {
   if (code === "ArrowLeft" || code === "KeyA") keys.left = isDown;
   if (code === "ArrowRight" || code === "KeyD") keys.right = isDown;
@@ -1492,6 +1755,10 @@ function setKey(code, isDown) {
 }
 
 document.addEventListener("keydown", (e) => {
+  if ((e.code === "Space" || e.code === "Enter") && pressPrimaryButton()) {
+    e.preventDefault();   // so the same key press doesn't also click the button again
+    return;
+  }
   if (gameState === "intro" && (e.code === "Space" || e.code === "Enter")) {
     skipIntro();
     return;
