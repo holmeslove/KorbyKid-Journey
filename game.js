@@ -1682,10 +1682,20 @@ function drawBullets() {
 }
 
 // ---------- Door and camera ----------
+// Played when KorbyKid goes through a portal to the next level
+const portalSound = new Audio("sounds/portal.mp3");
+
+function playPortalSound() {
+  const copy = portalSound.cloneNode();
+  copy.volume = soundVolume / 10;
+  copy.play().catch(() => {});
+}
+
 function checkDoor() {
   // Walk into the door and press Up (or W) to go through it
   if (level.door && keys.up && rectsOverlap(player, level.door)) {
     finishTimer = 60;
+    playPortalSound();
   }
 }
 
