@@ -508,8 +508,6 @@ function drawIntro() {
     ctx.fillStyle = "#1d2b53";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
   }
-  ctx.fillStyle = "#4a3b2a";
-  ctx.fillRect(0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y);
 }
 
 // ---------- Level start: Mr. Loodle flies KorbyKid in ----------
