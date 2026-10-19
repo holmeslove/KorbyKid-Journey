@@ -70,6 +70,7 @@ const IMAGE_FILES = {
   cloopy: "assets/cloopy.png",
   gun: "assets/gun.png",
   gunFlipped: "assets/gun-flipped.png",
+  sixtySeven: "assets/67.png",
   bossBackground: "assets/boss-background.png",
   bossFloor: "assets/boss-floor.png",
   winBackground: "assets/win_background.png",
@@ -691,6 +692,8 @@ function loadLevel(index) {
   cameraX = 0;
   bullets = [];
   heartPickups = [];
+  holeStreak = 0;
+  easterEgg = null;
   deathTimer = 0;
   finishTimer = 0;
   attackTimer = 0;
@@ -702,6 +705,7 @@ function loadLevel(index) {
 
 // Called whenever KorbyKid takes damage. Each hit costs one heart.
 function loseHeart() {
+  if (!fallingIntoHole) holeStreak = 0;   // any other damage breaks a run of holes
   if (godMode || deathTimer > 0 || gameState !== "playing") return;
 
   lives--;
@@ -734,7 +738,19 @@ function knockBackPlayer(enemy) {
 
 // Falling into a hole costs a heart, then KorbyKid goes back to the start of the level
 function fallIntoHole() {
+  fallingIntoHole = true;
   loseHeart();
+  fallingIntoHole = false;
+
+  // Count the hole. Three in a row brings 67 down from the sky.
+  if (deathTimer === 0) {
+    holeStreak++;
+    if (holeStreak >= EASTER_EGG_HOLES && !easterEgg) {
+      holeStreak = 0;
+      spawnEasterEgg();
+    }
+  }
+
   if (deathTimer === 0) {
     player.x = level.start.x;
     player.y = level.start.y;
@@ -1313,6 +1329,102 @@ function drawWin() {
   drawMessage("You saved Mr. Loodle from evil!", HEIGHT - 120);
 }
 
+// ---------- The 67 easter egg ----------
+// Falling into 3 holes in a row (with no other damage in between) makes 67 fall from the sky.
+// He is only company: he can't be hurt, can't hurt KorbyKid, and can't be collided with.
+const EASTER_EGG_HOLES = 2;
+const EGG_SIZE = 60;
+
+let holeStreak = 0;          // holes fallen into in a row
+let fallingIntoHole = false; // true while a hole's damage is being counted
+let easterEgg = null;        // the 67 companion, once he has appeared
+
+// 67.mp3 plays five times in a row when he arrives
+const sixtySevenSound = new Audio("sounds/67.mp3");
+let sixtySevenPlays = 0;
+
+sixtySevenSound.addEventListener("ended", () => {
+  sixtySevenPlays++;
+  if (sixtySevenPlays < 5) {
+    sixtySevenSound.play().catch(() => {});
+  }
+});
+
+function playSixtySevenSound() {
+  sixtySevenPlays = 1;
+  sixtySevenSound.currentTime = 0;
+  sixtySevenSound.volume = soundVolume / 10;
+  sixtySevenSound.play().catch(() => {});
+}
+
+function spawnEasterEgg() {
+  playSixtySevenSound();
+  easterEgg = {
+    x: player.x,
+    y: -EGG_SIZE - 20,      // starts above the top of the screen
+    w: EGG_SIZE,
+    h: EGG_SIZE,
+    vy: 0,
+    falling: true,
+    t: 0                    // counts time, for the bobbing
+  };
+}
+
+// 67 falls down, then floats a KorbyKid's width away from him, bobbing up and down
+function updateEasterEgg() {
+  if (!easterEgg) return;
+  const egg = easterEgg;
+  egg.t++;
+
+  // Stay one KorbyKid's width away, on the side he is not facing
+  const targetX = player.facing === 1
+    ? player.x - PLAYER_W - egg.w
+    : player.x + player.w + PLAYER_W;
+  const targetY = GROUND_Y - egg.h;   // 67 stays on the ground
+
+  // Is there ground under him? If he walks over a hole, he falls in and is gone
+  const centerX = egg.x + egg.w / 2;
+  const overGround = level.platforms.some(p => p.y === GROUND_Y && centerX > p.x && centerX < p.x + p.w);
+
+  if (egg.falling) {
+    // Dropping down from the sky onto the ground
+    egg.vy += GRAVITY;
+    egg.y += egg.vy;
+    if (egg.y >= targetY) {
+      egg.y = targetY;
+      egg.vy = 0;
+      egg.falling = false;
+    }
+    egg.x = targetX;
+  } else if (!overGround) {
+    egg.vy += GRAVITY;
+    egg.y += egg.vy;
+    if (egg.y > level.height) {
+      easterEgg = null;   // he fell in the hole, so he is no more
+      return;
+    }
+  } else {
+    // Walk along the ground beside him
+    egg.x += (targetX - egg.x) * 0.1;
+    egg.y = targetY;
+    egg.vy = 0;
+  }
+
+  egg.x = clamp(egg.x, 0, level.width - egg.w);
+}
+
+function drawEasterEgg() {
+  if (!easterEgg) return;
+  if (imageReady("sixtySeven")) {
+    ctx.drawImage(images.sixtySeven, easterEgg.x, easterEgg.y, easterEgg.w, easterEgg.h);
+  } else {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 40px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("67", easterEgg.x + easterEgg.w / 2, easterEgg.y + easterEgg.h);
+  }
+}
+
 // ---------- Sparks and screen shake (polish) ----------
 let sparks = [];
 let shakeTimer = 0;   // frames left of screen shake after KorbyKid is hurt
@@ -1632,6 +1744,7 @@ function update() {
   updatePendingEnemies();
   updateHeartPickups();
   updateSparks();
+  updateEasterEgg();
   if (deathTimer === 0) checkDoor();
   updateCamera();
 }
@@ -1684,6 +1797,7 @@ function draw() {
   drawBullets();
   drawHeartPickups();
   drawSparks();
+  drawEasterEgg();
   // Flash on and off while he is protected after a hit
   // After a hit, KorbyKid flashes red on and off (instead of blinking out of sight)
   const redFlashOn = invulnerableTimer > 0 && Math.floor(invulnerableTimer / 6) % 2 === 0;
@@ -2222,6 +2336,11 @@ const CHARACTERS = [
     name: "Evil Mr. Loodle",
     image: "assets/evil-mr-loodle.png",
     description: "Nah, i'm not giving u dis description. :)"
+  },
+  {
+    name: "67",
+    image: "assets/67.png",
+    description: "Yells 67 in your ear constantly and annoys you, he can fall in holes. He doesn't kill you though. Jump in a hole twice in a row without taking damage to spawn him in."
   }
 ];
 

@@ -224,22 +224,22 @@ body {
 
 #characters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
   width: 100%;
-  max-width: 860px;
+  max-width: 1000px;
 }
 
 .character-card {
-  padding: 10px;
+  padding: 14px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   text-align: center;
 }
 
 .character-card img {
-  width: 90px;
-  height: 90px;
+  width: 125px;   /* 20% bigger than before (104px) */
+  height: 125px;
   object-fit: contain;
 }
 
